@@ -1,0 +1,772 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum ClientType {
+  REGULAR
+  PREFERENCIAL
+}
+
+enum WarehouseType {
+  PRINCIPAL
+  HERRAMIENTAS
+  ELECTRICO
+  CONTROL
+}
+
+enum MovementType {
+  INGRESO
+  EGRESO
+  TRANSFERENCIA
+  AJUSTE
+}
+
+enum MovementReason {
+  COMPRA
+  PROYECTO
+  KIT
+  DEVOLUCION
+  AJUSTE_MANUAL
+  VENTA
+  SERVICIO
+}
+
+enum QuoteStatus {
+  BORRADOR
+  ENVIADA
+  APROBADA
+  RECHAZADA
+  VENCIDA
+}
+
+enum PaymentType {
+  CONTADO
+  CREDITO
+}
+
+enum QuoteType {
+  PRODUCTOS
+  SERVICIOS
+}
+
+enum QuoteItemType {
+  PRODUCT
+  SERVICE
+  KIT
+}
+
+enum HiddenCostType {
+  MANO_DE_OBRA
+  TRANSPORTE
+  ACCESORIOS
+  MATERIAL
+}
+
+enum StockCheckStatus {
+  DISPONIBLE
+  PARCIAL
+  SIN_STOCK
+}
+
+enum ProjectStatus {
+  PLANIFICACION
+  EN_CURSO
+  PAUSADO
+  COMPLETADO
+  CANCELADO
+}
+
+enum ProjectPriority {
+  BAJA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum ServiceOrderStatus {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  CANCELADO
+}
+
+enum TaskStatus {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  CANCELADO
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+// ─── COMPANY SETTINGS ────────────────────────────────────────────────────────
+
+model CompanySettings {
+  id                  BigInt    @id @default(autoincrement())
+  name                String    @db.VarChar(150)
+  nit                 String?   @db.VarChar(50)
+  email               String?   @db.VarChar(120)
+  phone               String?   @db.VarChar(50)
+  address             String?   @db.VarChar(255)
+  city                String?   @db.VarChar(100)
+  country             String?   @db.VarChar(100)
+  logoPath            String?   @map("logo_path") @db.VarChar(255)
+  defaultCurrency     String    @default("BOB") @map("default_currency") @db.VarChar(10)
+  defaultCreditDays   Int?      @default(60) @map("default_credit_days")
+  defaultCreditMarkup Decimal?  @default(15.00) @map("default_credit_markup") @db.Decimal(5, 2)
+  updatedAt           DateTime? @updatedAt @map("updated_at")
+
+  @@map("company_settings")
+}
+
+// ─── USERS & AUTH ────────────────────────────────────────────────────────────
+
+model User {
+  id           BigInt    @id @default(autoincrement())
+  username     String    @unique @db.VarChar(50)
+  email        String    @unique @db.VarChar(120)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  fullName     String?   @map("full_name") @db.VarChar(150)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime? @updatedAt @map("updated_at")
+
+  userRoles             UserRole[]
+  inventoryMovements    InventoryMovement[]
+  kits                  Kit[]
+  quotes                Quote[]
+  projectsAssigned      Project[]             @relation("ProjectAssignedTo")
+  projectsCreated       Project[]             @relation("ProjectCreatedBy")
+  serviceOrdersAssigned ServiceOrder[]        @relation("ServiceOrderAssignedTo")
+  serviceOrdersCreated  ServiceOrder[]        @relation("ServiceOrderCreatedBy")
+  serviceOrderTasks     ServiceOrderTask[]
+  serviceOrderLabor     ServiceOrderLabor[]
+  auditLogs             AuditLog[]
+  reportsLogs           ReportsLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          BigInt   @id @default(autoincrement())
+  code        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  module      String?  @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           BigInt @id @default(autoincrement())
+  roleId       BigInt @map("role_id")
+  permissionId BigInt @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt   @map("user_id")
+  roleId     BigInt   @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ─── CLIENTS & SUPPLIERS ─────────────────────────────────────────────────────
+
+model Client {
+  id                  BigInt     @id @default(autoincrement())
+  name                String     @db.VarChar(150)
+  documentType        String?    @map("document_type") @db.VarChar(20)
+  documentNum         String?    @map("document_num") @db.VarChar(50)
+  email               String?    @db.VarChar(120)
+  phone               String?    @db.VarChar(50)
+  address             String?    @db.VarChar(255)
+  city                String?    @db.VarChar(100)
+  country             String?    @db.VarChar(100)
+  clientType          ClientType @default(REGULAR) @map("client_type")
+  discountPercent     Decimal    @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  creditEnabled       Boolean    @default(false) @map("credit_enabled")
+  creditDays          Int?       @default(60) @map("credit_days")
+  creditMarkupPercent Decimal?   @default(15.00) @map("credit_markup_percent") @db.Decimal(5, 2)
+  isActive            Boolean    @default(true) @map("is_active")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime?  @updatedAt @map("updated_at")
+
+  quotes        Quote[]
+  projects      Project[]
+  serviceOrders ServiceOrder[]
+
+  @@map("clients")
+}
+
+model Supplier {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(150)
+  documentType String?  @map("document_type") @db.VarChar(20)
+  documentNum  String?  @map("document_num") @db.VarChar(50)
+  email        String?  @db.VarChar(120)
+  phone        String?  @db.VarChar(50)
+  address      String?  @db.VarChar(255)
+  city         String?  @db.VarChar(100)
+  country      String?  @db.VarChar(100)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  inventoryMovements InventoryMovement[]
+  products           Product[]
+
+  @@map("suppliers")
+}
+
+// ─── PRODUCTS & CATEGORIES ───────────────────────────────────────────────────
+
+model ProductCategory {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Unit {
+  id        BigInt   @id @default(autoincrement())
+  code      String   @unique @db.VarChar(20)
+  name      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@map("units")
+}
+
+model Product {
+  id                BigInt    @id @default(autoincrement())
+  sku               String    @unique @db.VarChar(50)
+  name              String    @db.VarChar(150)
+  description       String?
+  categoryId        BigInt?   @map("category_id")
+  supplierId        BigInt?   @map("supplier_id")
+  unitId            BigInt    @map("unit_id")
+  costPrice         Decimal?  @map("cost_price") @db.Decimal(14, 2)
+  salePrice         Decimal?  @map("sale_price") @db.Decimal(14, 2)
+  brand             String?   @db.VarChar(100)
+  origin            String?   @db.VarChar(100)
+  manufacturerCode  String?   @map("manufacturer_code") @db.VarChar(100)
+  isService         Boolean   @default(false) @map("is_service")
+  isActive          Boolean   @default(true) @map("is_active")
+  minStockGlobal    Decimal?  @default(0) @map("min_stock_global") @db.Decimal(14, 2)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime? @updatedAt @map("updated_at")
+
+  category               ProductCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier               Supplier?                @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  unit                   Unit                     @relation(fields: [unitId], references: [id])
+  warehouseStocks        WarehouseStock[]
+  inventoryMovementItems InventoryMovementItem[]
+  kitItems               KitItem[]
+  quoteItems             QuoteItem[]
+  stockChecks            QuoteItemStockCheck[]
+  serviceOrderMaterials  ServiceOrderMaterial[]
+
+  @@index([categoryId], map: "idx_products_category")
+  @@index([sku], map: "idx_products_sku")
+  @@map("products")
+}
+
+// ─── WAREHOUSES & STOCK ──────────────────────────────────────────────────────
+
+model Warehouse {
+  id          BigInt        @id @default(autoincrement())
+  code        String        @unique @db.VarChar(20)
+  name        String        @db.VarChar(100)
+  description String?       @db.VarChar(255)
+  type        WarehouseType @default(PRINCIPAL)
+  parentId    BigInt?       @map("parent_id")
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  parent   Warehouse?  @relation("WarehouseHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Warehouse[] @relation("WarehouseHierarchy")
+
+  warehouseStocks        WarehouseStock[]
+  movementsFrom          InventoryMovement[]    @relation("MovementFrom")
+  movementsTo            InventoryMovement[]    @relation("MovementTo")
+  stockChecks            QuoteItemStockCheck[]
+  serviceOrderMaterials  ServiceOrderMaterial[]
+
+  @@index([parentId], map: "idx_warehouses_parent")
+  @@map("warehouses")
+}
+
+model WarehouseStock {
+  id          BigInt    @id @default(autoincrement())
+  warehouseId BigInt    @map("warehouse_id")
+  productId   BigInt    @map("product_id")
+  quantity    Decimal   @default(0) @db.Decimal(14, 2)
+  minStock    Decimal   @default(0) @map("min_stock") @db.Decimal(14, 2)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime? @updatedAt @map("updated_at")
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, productId])
+  @@index([warehouseId], map: "idx_warehouse_stock_warehouse")
+  @@index([productId], map: "idx_warehouse_stock_product")
+  @@map("warehouse_stock")
+}
+
+// ─── INVENTORY MOVEMENTS ─────────────────────────────────────────────────────
+
+model InventoryMovement {
+  id              BigInt         @id @default(autoincrement())
+  movementDate    DateTime       @default(now()) @map("movement_date")
+  type            MovementType
+  reason          MovementReason
+  warehouseFromId BigInt?        @map("warehouse_from_id")
+  warehouseToId   BigInt?        @map("warehouse_to_id")
+  relatedModule   String?        @map("related_module") @db.VarChar(50)
+  relatedId       BigInt?        @map("related_id")
+  supplierId      BigInt?        @map("supplier_id")
+  createdBy       BigInt         @map("created_by")
+  note            String?        @db.VarChar(255)
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  warehouseFrom Warehouse? @relation("MovementFrom", fields: [warehouseFromId], references: [id])
+  warehouseTo   Warehouse? @relation("MovementTo", fields: [warehouseToId], references: [id])
+  supplier      Supplier?  @relation(fields: [supplierId], references: [id])
+  creator       User       @relation(fields: [createdBy], references: [id])
+
+  items                 InventoryMovementItem[]
+  serviceOrderMaterials ServiceOrderMaterial[]
+
+  @@index([type], map: "idx_inv_movements_type")
+  @@index([movementDate], map: "idx_inv_movements_date")
+  @@index([supplierId], map: "idx_inv_movements_supplier")
+  @@map("inventory_movements")
+}
+
+model InventoryMovementItem {
+  id                  BigInt   @id @default(autoincrement())
+  inventoryMovementId BigInt   @map("inventory_movement_id")
+  productId           BigInt   @map("product_id")
+  quantity            Decimal  @db.Decimal(14, 2)
+  unitCost            Decimal? @map("unit_cost") @db.Decimal(14, 4)
+  totalCost           Decimal? @map("total_cost") @db.Decimal(14, 4)
+
+  inventoryMovement InventoryMovement @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
+  product           Product           @relation(fields: [productId], references: [id])
+
+  @@index([inventoryMovementId], map: "idx_inv_movement_items_movement")
+  @@map("inventory_movement_items")
+}
+
+// ─── KITS ────────────────────────────────────────────────────────────────────
+
+model Kit {
+  id          BigInt   @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(150)
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   BigInt?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  creator User?      @relation(fields: [createdBy], references: [id])
+  items   KitItem[]
+  quoteItems QuoteItem[]
+
+  @@map("kits")
+}
+
+model KitItem {
+  id        BigInt  @id @default(autoincrement())
+  kitId     BigInt  @map("kit_id")
+  productId BigInt  @map("product_id")
+  quantity  Decimal @db.Decimal(14, 2)
+
+  kit     Kit     @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([kitId], map: "idx_kit_items_kit")
+  @@map("kit_items")
+}
+
+// ─── QUOTES ──────────────────────────────────────────────────────────────────
+
+model Quote {
+  id              BigInt      @id @default(autoincrement())
+  quoteNumber     String      @unique @map("quote_number") @db.VarChar(50)
+  version         Int         @default(1)
+  clientId        BigInt      @map("client_id")
+  createdBy       BigInt      @map("created_by")
+  status          QuoteStatus @default(BORRADOR)
+  quoteType       QuoteType   @default(PRODUCTOS) @map("quote_type")
+  paymentType     PaymentType @default(CONTADO) @map("payment_type")
+  validUntil      DateTime?   @map("valid_until") @db.Date
+  issueDate       DateTime    @default(now()) @map("issue_date") @db.Date
+  currency        String      @default("BOB") @db.VarChar(10)
+  subtotal        Decimal     @default(0) @db.Decimal(14, 2)
+  taxTotal        Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
+  discountTotal   Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)
+  grandTotal      Decimal     @default(0) @map("grand_total") @db.Decimal(14, 2)
+  termsConditions String?     @map("terms_conditions")
+  observations    String?
+  pdfPath         String?     @map("pdf_path") @db.VarChar(255)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime?   @updatedAt @map("updated_at")
+
+  client  Client @relation(fields: [clientId], references: [id])
+  creator User   @relation(fields: [createdBy], references: [id])
+
+  items         QuoteItem[]
+  serviceOrders ServiceOrder[]
+  projectQuotes ProjectQuote[]
+
+  @@index([clientId], map: "idx_quotes_client")
+  @@index([status], map: "idx_quotes_status")
+  @@index([quoteNumber], map: "idx_quotes_number")
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id            BigInt        @id @default(autoincrement())
+  quoteId       BigInt        @map("quote_id")
+  itemType      QuoteItemType @default(PRODUCT) @map("item_type")
+  productId     BigInt?       @map("product_id")
+  kitId         BigInt?       @map("kit_id")
+  description   String?
+  quantity      Decimal       @db.Decimal(14, 2)
+  unitPrice     Decimal       @map("unit_price") @db.Decimal(14, 4)
+  unitPriceBase Decimal?      @map("unit_price_base") @db.Decimal(14, 4)
+  discount      Decimal       @default(0) @db.Decimal(14, 2)
+  taxPercent    Decimal       @default(0) @map("tax_percent") @db.Decimal(5, 2)
+  lineTotal     Decimal       @default(0) @map("line_total") @db.Decimal(14, 2)
+  sortOrder     Int?          @default(0) @map("sort_order")
+  isKit         Boolean       @default(false) @map("is_kit")
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+  kit     Kit?     @relation(fields: [kitId], references: [id])
+
+  details     QuoteItemDetail[]
+  hiddenCosts QuoteItemHiddenCost[]
+  stockChecks QuoteItemStockCheck[]
+
+  @@index([quoteId], map: "idx_quote_items_quote")
+  @@map("quote_items")
+}
+
+model QuoteItemDetail {
+  id          BigInt  @id @default(autoincrement())
+  quoteItemId BigInt  @map("quote_item_id")
+  description String
+  sortOrder   Int?    @default(0) @map("sort_order")
+
+  quoteItem QuoteItem @relation(fields: [quoteItemId], references: [id], onDelete: Cascade)
+
+  @@index([quoteItemId], map: "idx_quote_item_details_item")
+  @@map("quote_item_details")
+}
+
+model QuoteItemHiddenCost {
+  id          BigInt         @id @default(autoincrement())
+  quoteItemId BigInt         @map("quote_item_id")
+  costType    HiddenCostType @map("cost_type")
+  description String?        @db.VarChar(255)
+  quantity    Decimal?       @default(1) @db.Decimal(14, 2)
+  unitCost    Decimal        @map("unit_cost") @db.Decimal(14, 4)
+  totalCost   Decimal        @map("total_cost") @db.Decimal(14, 4)
+
+  quoteItem QuoteItem @relation(fields: [quoteItemId], references: [id], onDelete: Cascade)
+
+  @@index([quoteItemId], map: "idx_quote_hidden_costs_item")
+  @@map("quote_item_hidden_costs")
+}
+
+model QuoteItemStockCheck {
+  id           BigInt           @id @default(autoincrement())
+  quoteItemId  BigInt           @map("quote_item_id")
+  productId    BigInt           @map("product_id")
+  requiredQty  Decimal          @map("required_qty") @db.Decimal(14, 2)
+  availableQty Decimal          @map("available_qty") @db.Decimal(14, 2)
+  warehouseId  BigInt?          @map("warehouse_id")
+  status       StockCheckStatus
+  checkedAt    DateTime         @default(now()) @map("checked_at")
+
+  quoteItem QuoteItem  @relation(fields: [quoteItemId], references: [id], onDelete: Cascade)
+  product   Product    @relation(fields: [productId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@map("quote_item_stock_checks")
+}
+
+// ─── PROJECTS ────────────────────────────────────────────────────────────────
+
+model Project {
+  id              BigInt          @id @default(autoincrement())
+  projectCode     String          @unique @map("project_code") @db.VarChar(50)
+  name            String          @db.VarChar(200)
+  description     String?
+  clientId        BigInt          @map("client_id")
+  status          ProjectStatus   @default(PLANIFICACION)
+  priority        ProjectPriority @default(MEDIA)
+  startDate       DateTime?       @map("start_date") @db.Date
+  endDate         DateTime?       @map("end_date") @db.Date
+  estimatedBudget Decimal?        @default(0) @map("estimated_budget") @db.Decimal(14, 2)
+  actualCost      Decimal?        @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  assignedTo      BigInt?         @map("assigned_to")
+  createdBy       BigInt          @map("created_by")
+  observations    String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime?       @updatedAt @map("updated_at")
+
+  client          Client  @relation(fields: [clientId], references: [id])
+  assignedToUser  User?   @relation("ProjectAssignedTo", fields: [assignedTo], references: [id])
+  creator         User    @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
+
+  projectServices ProjectService[]
+  projectQuotes   ProjectQuote[]
+  serviceOrders   ServiceOrder[]
+
+  @@index([clientId], map: "idx_projects_client")
+  @@index([status], map: "idx_projects_status")
+  @@map("projects")
+}
+
+// ─── SERVICE ORDERS ──────────────────────────────────────────────────────────
+
+model ServiceOrder {
+  id          BigInt             @id @default(autoincrement())
+  serviceCode String             @unique @map("service_code") @db.VarChar(50)
+  clientId    BigInt             @map("client_id")
+  projectId   BigInt?            @map("project_id")
+  quoteId     BigInt?            @map("quote_id")
+  title       String             @db.VarChar(150)
+  description String?
+  status      ServiceOrderStatus @default(PENDIENTE)
+  startDate   DateTime?          @map("start_date") @db.Date
+  endDate     DateTime?          @map("end_date") @db.Date
+  assignedTo  BigInt?            @map("assigned_to")
+  createdBy   BigInt             @map("created_by")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime?          @updatedAt @map("updated_at")
+
+  client         Client   @relation(fields: [clientId], references: [id])
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  quote          Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  assignedToUser User?    @relation("ServiceOrderAssignedTo", fields: [assignedTo], references: [id])
+  creator        User     @relation("ServiceOrderCreatedBy", fields: [createdBy], references: [id])
+
+  projectServices ProjectService[]
+  tasks           ServiceOrderTask[]
+  materials       ServiceOrderMaterial[]
+  labor           ServiceOrderLabor[]
+
+  @@index([clientId], map: "idx_service_orders_client")
+  @@index([projectId], map: "idx_service_orders_project")
+  @@index([status], map: "idx_service_orders_status")
+  @@map("service_orders")
+}
+
+model ProjectService {
+  id             BigInt   @id @default(autoincrement())
+  projectId      BigInt   @map("project_id")
+  serviceOrderId BigInt   @map("service_order_id")
+  sortOrder      Int?     @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, serviceOrderId])
+  @@map("project_services")
+}
+
+model ProjectQuote {
+  id        BigInt   @id @default(autoincrement())
+  projectId BigInt   @map("project_id")
+  quoteId   BigInt   @map("quote_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  quote   Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, quoteId])
+  @@map("project_quotes")
+}
+
+model ServiceOrderTask {
+  id             BigInt     @id @default(autoincrement())
+  serviceOrderId BigInt     @map("service_order_id")
+  description    String
+  status         TaskStatus @default(PENDIENTE)
+  performedBy    BigInt?    @map("performed_by")
+  startTime      DateTime?  @map("start_time")
+  endTime        DateTime?  @map("end_time")
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  performer    User?        @relation(fields: [performedBy], references: [id])
+
+  @@index([serviceOrderId], map: "idx_service_tasks_order")
+  @@map("service_order_tasks")
+}
+
+model ServiceOrderMaterial {
+  id                  BigInt  @id @default(autoincrement())
+  serviceOrderId      BigInt  @map("service_order_id")
+  productId           BigInt  @map("product_id")
+  quantity            Decimal @db.Decimal(14, 2)
+  warehouseId         BigInt  @map("warehouse_id")
+  inventoryMovementId BigInt? @map("inventory_movement_id")
+  note                String? @db.VarChar(255)
+
+  serviceOrder      ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  product           Product            @relation(fields: [productId], references: [id])
+  warehouse         Warehouse          @relation(fields: [warehouseId], references: [id])
+  inventoryMovement InventoryMovement? @relation(fields: [inventoryMovementId], references: [id])
+
+  @@index([serviceOrderId], map: "idx_service_materials_order")
+  @@map("service_order_materials")
+}
+
+model ServiceOrderLabor {
+  id             BigInt  @id @default(autoincrement())
+  serviceOrderId BigInt  @map("service_order_id")
+  userId         BigInt  @map("user_id")
+  hoursWorked    Decimal @default(0) @map("hours_worked") @db.Decimal(10, 2)
+  hourlyRate     Decimal @default(0) @map("hourly_rate") @db.Decimal(14, 4)
+  totalCost      Decimal @default(0) @map("total_cost") @db.Decimal(14, 2)
+  description    String?
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([serviceOrderId], map: "idx_service_labor_order")
+  @@map("service_order_labor")
+}
+
+// ─── MODULES REGISTRY ────────────────────────────────────────────────────────
+
+model ModulesRegistry {
+  id          BigInt    @id @default(autoincrement())
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  isEnabled   Boolean   @default(true) @map("is_enabled")
+  version     String?   @default("1.0.0") @db.VarChar(20)
+  configJson  String?   @map("config_json")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime? @updatedAt @map("updated_at")
+
+  @@map("modules_registry")
+}
+
+// ─── ENTITY CUSTOM FIELDS ────────────────────────────────────────────────────
+
+model EntityCustomField {
+  id         BigInt    @id @default(autoincrement())
+  entityType String    @map("entity_type") @db.VarChar(50)
+  entityId   BigInt    @map("entity_id")
+  fieldName  String    @map("field_name") @db.VarChar(100)
+  fieldType  FieldType @default(TEXT) @map("field_type")
+  fieldValue String?   @map("field_value")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId, fieldName])
+  @@index([entityType, entityId], map: "idx_custom_fields_entity")
+  @@map("entity_custom_fields")
+}
+
+// ─── AUDIT LOG ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         BigInt      @id @default(autoincrement())
+  userId     BigInt?     @map("user_id")
+  action     AuditAction
+  entityType String      @map("entity_type") @db.VarChar(50)
+  entityId   BigInt?     @map("entity_id")
+  oldValues  String?     @map("old_values")
+  newValues  String?     @map("new_values")
+  ipAddress  String?     @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "idx_audit_log_user")
+  @@index([entityType, entityId], map: "idx_audit_log_entity")
+  @@index([createdAt], map: "idx_audit_log_date")
+  @@map("audit_log")
+}
+
+// ─── REPORTS LOG ─────────────────────────────────────────────────────────────
+
+model ReportsLog {
+  id          BigInt   @id @default(autoincrement())
+  reportType  String   @map("report_type") @db.VarChar(50)
+  generatedBy BigInt   @map("generated_by")
+  parameters  String?
+  filePath    String?  @map("file_path") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  generator User @relation(fields: [generatedBy], references: [id])
+
+  @@map("reports_log")
+}
