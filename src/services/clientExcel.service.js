@@ -13,6 +13,15 @@ async function previewImportFromClientExcel(filePath) {
     // Leer desde fila 6 (índice 5) donde están los encabezados
     const data = XLSX.utils.sheet_to_json(worksheet, { range: 5 });
 
+    // Debug: ver qué columnas detecta
+    console.log('=== DEBUG PREVIEW ===');
+    console.log('Total filas leídas:', data.length);
+    if (data.length > 0) {
+      console.log('Columnas detectadas:', Object.keys(data[0]));
+      console.log('Primera fila completa:', JSON.stringify(data[0], null, 2));
+    }
+    console.log('====================');
+
     const preview = {
       totalProducts: data.length,
       categories: {
@@ -39,6 +48,15 @@ async function previewImportFromClientExcel(filePath) {
       const grupo = row.GRUPO || row.grupo;
       const nombre = row.NOMBRE || row.nombre;
       const codigo = row.CODIGO || row.codigo;
+
+      // Debug primera fila
+      if (i === 0) {
+        console.log('=== PRIMERA FILA PROCESADA ===');
+        console.log('grupo:', grupo);
+        console.log('nombre:', nombre);
+        console.log('codigo:', codigo);
+        console.log('==============================');
+      }
 
       if (nombre && codigo) {
         preview.products.push({
