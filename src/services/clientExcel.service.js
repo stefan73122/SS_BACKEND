@@ -90,6 +90,13 @@ async function previewImportFromClientExcel(filePath) {
       }
     });
 
+    console.log('=== PREVIEW RESPONSE ===');
+    console.log('Total products:', preview.products.length);
+    console.log('First 3 products:', JSON.stringify(preview.products.slice(0, 3), null, 2));
+    console.log('Categories new:', JSON.stringify(preview.categories.new, null, 2));
+    console.log('Categories existing:', JSON.stringify(preview.categories.existing, null, 2));
+    console.log('=======================');
+
     return preview;
   } catch (error) {
     throw new Error(`Error al previsualizar archivo Excel: ${error.message}`);
