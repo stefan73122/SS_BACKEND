@@ -10,7 +10,8 @@ async function previewImportFromClientExcel(filePath) {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    // Leer desde fila 6 (índice 5) donde están los encabezados
+    const data = XLSX.utils.sheet_to_json(worksheet, { range: 5 });
 
     const preview = {
       totalProducts: data.length,
@@ -41,7 +42,7 @@ async function previewImportFromClientExcel(filePath) {
 
       if (nombre && codigo) {
         preview.products.push({
-          row: i + 2, // +2 porque fila 1 son encabezados
+          row: i + 7, // +7 porque fila 6 son encabezados, datos desde fila 7
           sku: codigo.toString(),
           name: nombre,
           category: grupo || 'Sin categoría',
@@ -115,8 +116,8 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Leer desde fila 1 (encabezados) - sheet_to_json automáticamente usa fila 1 como encabezados
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    // Leer desde fila 6 (índice 5) donde están los encabezados
+    const data = XLSX.utils.sheet_to_json(worksheet, { range: 5 });
 
     const results = {
       success: [],
@@ -137,7 +138,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowNumber = i + 2; // +2 porque fila 1 son encabezados
+      const rowNumber = i + 7; // +7 porque fila 6 son encabezados, datos desde fila 7
 
       try {
         // Mapear usando nombres de columnas del Excel
