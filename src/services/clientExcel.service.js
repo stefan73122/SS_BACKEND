@@ -2,6 +2,82 @@ const XLSX = require('xlsx');
 const prisma = require('../prisma/client');
 
 /**
+ * Previsualizar importación de productos desde Excel
+ * Analiza el archivo y detecta categorías nuevas que se crearán
+ */
+async function previewImportFromClientExcel(filePath) {
+  try {
+    const workbook = XLSX.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { range: 3 });
+
+    const preview = {
+      totalProducts: data.length,
+      categories: {
+        existing: [],
+        new: [],
+      },
+      products: [],
+    };
+
+    // Obtener todas las categorías existentes
+    const existingCategories = await prisma.productCategory.findMany({
+      select: { id: true, name: true },
+    });
+
+    const existingCategoryNames = new Set(
+      existingCategories.map(c => c.name.toLowerCase())
+    );
+
+    // Analizar productos y categorías
+    const categoriesInExcel = new Set();
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const grupo = row.__EMPTY_5;
+      const nombre = row.__EMPTY_3;
+      const codigo = row.__EMPTY_2;
+
+      if (nombre && codigo) {
+        preview.products.push({
+          row: i + 4, // +4 porque empezamos en fila 4 del Excel
+          sku: codigo.toString(),
+          name: nombre,
+          category: grupo || 'Sin categoría',
+        });
+
+        if (grupo) {
+          categoriesInExcel.add(grupo);
+        }
+      }
+    }
+
+    // Clasificar categorías
+    categoriesInExcel.forEach(categoryName => {
+      if (existingCategoryNames.has(categoryName.toLowerCase())) {
+        const existing = existingCategories.find(
+          c => c.name.toLowerCase() === categoryName.toLowerCase()
+        );
+        preview.categories.existing.push({
+          id: existing.id.toString(),
+          name: existing.name,
+        });
+      } else {
+        preview.categories.new.push({
+          name: categoryName,
+          willBeCreated: true,
+        });
+      }
+    });
+
+    return preview;
+  } catch (error) {
+    throw new Error(`Error al previsualizar archivo Excel: ${error.message}`);
+  }
+}
+
+/**
  * Importar productos desde Excel del cliente
  * Mapeo de columnas:
  * - CODIGO SS → código interno del sistema
@@ -17,8 +93,14 @@ const prisma = require('../prisma/client');
  * - ALMACEN → warehouse (asignar stock)
  * - UND → unit (unidad de medida)
  * - OBSERVACIONES → description
+ * 
+ * @param {string} filePath - Ruta del archivo Excel
+ * @param {string} userId - ID del usuario que realiza la importación
+ * @param {string} warehouseId - ID del almacén de destino (obligatorio)
+ * @param {object} categoryMappings - Mapeo de categorías del Excel a categorías del sistema
+ *                                    Formato: { "categoriaExcel": "categoriaIdSistema" }
  */
-async function importProductsFromClientExcel(filePath, userId) {
+async function importProductsFromClientExcel(filePath, userId, warehouseId, categoryMappings = {}) {
   // Si no viene userId, buscar un admin como fallback
   if (!userId) {
     const adminUser = await prisma.user.findFirst({
@@ -106,16 +188,23 @@ async function importProductsFromClientExcel(filePath, userId) {
         // Buscar o crear categoría (GRUPO)
         let categoryId = null;
         if (grupo) {
-          let category = await prisma.productCategory.findFirst({
-            where: { name: { equals: grupo, mode: 'insensitive' } },
-          });
-
-          if (!category) {
-            category = await prisma.productCategory.create({
-              data: { name: grupo },
+          // Verificar si hay un mapeo personalizado para esta categoría
+          if (categoryMappings[grupo]) {
+            categoryId = BigInt(categoryMappings[grupo]);
+          } else {
+            // Buscar categoría existente
+            let category = await prisma.productCategory.findFirst({
+              where: { name: { equals: grupo, mode: 'insensitive' } },
             });
+
+            // Solo crear si no existe
+            if (!category) {
+              category = await prisma.productCategory.create({
+                data: { name: grupo },
+              });
+            }
+            categoryId = category.id;
           }
-          categoryId = category.id;
         }
 
         // Buscar o crear unidad (UND)
@@ -194,33 +283,20 @@ async function importProductsFromClientExcel(filePath, userId) {
           results.created++;
         }
 
-        // Asignar stock al almacén si se especifica
-        if (cantidad && almacen) {
+        // Asignar stock al almacén especificado en el parámetro
+        if (cantidad && warehouseId) {
           // Parsear cantidad y validar
           const quantityValue = parseFloat(cantidad);
           
           if (!isNaN(quantityValue) && quantityValue > 0) {
-            // Buscar o crear almacén
-            let warehouse = await prisma.warehouse.findFirst({
-              where: { code: { equals: almacen.toString(), mode: 'insensitive' } },
-            });
-
-            if (!warehouse) {
-              warehouse = await prisma.warehouse.create({
-                data: {
-                  code: almacen.toString(),
-                  name: almacen.toString(),
-                  type: 'PRINCIPAL',
-                  isActive: true,
-                },
-              });
-            }
+            // Usar el almacén del parámetro
+            const warehouseBigIntId = BigInt(warehouseId);
 
             // Verificar si ya existe stock para este producto en este almacén
             const existingStock = await prisma.warehouseStock.findFirst({
               where: {
                 productId: product.id,
-                warehouseId: warehouse.id,
+                warehouseId: warehouseBigIntId,
               },
             });
 
@@ -239,7 +315,7 @@ async function importProductsFromClientExcel(filePath, userId) {
               await prisma.warehouseStock.create({
                 data: {
                   productId: product.id,
-                  warehouseId: warehouse.id,
+                  warehouseId: warehouseBigIntId,
                   quantity: finalQty,
                 },
               });
@@ -258,7 +334,7 @@ async function importProductsFromClientExcel(filePath, userId) {
                     reason: movReason,
                     note: `Importación Excel - ${isNew ? 'Producto nuevo' : `Actualización de stock (anterior: ${previousQty})`}`,
                     createdBy: BigInt(userId),
-                    warehouseToId: warehouse.id,
+                    warehouseToId: warehouseBigIntId,
                     items: {
                       create: {
                         productId: product.id,
@@ -300,5 +376,6 @@ async function importProductsFromClientExcel(filePath, userId) {
 }
 
 module.exports = {
+  previewImportFromClientExcel,
   importProductsFromClientExcel,
 };

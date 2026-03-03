@@ -21,6 +21,7 @@ function optionalAuth(req, res, next) {
 const router = express.Router();
 
 router.post('/import-products', optionalAuth, upload.single('file'), excelController.importProducts);
+router.post('/import-products-client/preview', optionalAuth, upload.single('file'), clientExcelController.previewImport);
 router.post('/import-products-client', optionalAuth, upload.single('file'), clientExcelController.importProductsFromClient);
 router.post('/update-stock', optionalAuth, upload.single('file'), excelController.updateStock);
 router.get('/templates/products', excelController.downloadProductsTemplate);
