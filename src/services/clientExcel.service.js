@@ -174,6 +174,11 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
       const row = data[i];
       const rowNumber = i + 7; // +7 porque fila 6 son encabezados, datos desde fila 7
 
+      // Log de progreso cada 10 productos
+      if (i > 0 && i % 10 === 0) {
+        console.log(`[Excel Import] Progreso: ${i}/${data.length} productos procesados`);
+      }
+
       try {
         // Mapear usando nombres de columnas del Excel
         const codigoSS = row['CODIGO SS'] || row['CODIGO_SS'] || row.CODIGO_SS;
@@ -234,9 +239,11 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
             // Solo crear si no existe
             if (!category) {
+              console.log(`[Excel Import] Creando categoría: ${grupo}`);
               category = await prisma.productCategory.create({
                 data: { name: grupo },
               });
+              console.log(`[Excel Import] Categoría creada: ${grupo} (ID: ${category.id})`);
             }
             categoryId = category.id;
           }
