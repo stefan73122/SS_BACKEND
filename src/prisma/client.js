@@ -18,9 +18,4 @@ if (!global.prisma) {
 
 const prisma = global.prisma;
 
-// Reconectar automáticamente si la conexión se cierra
-prisma.$on('beforeExit', async () => {
-  console.log('Prisma desconectándose...');
-});
-
 module.exports = prisma;
