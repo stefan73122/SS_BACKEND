@@ -10,7 +10,7 @@ async function previewImportFromClientExcel(filePath) {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet, { range: 3 });
+    const data = XLSX.utils.sheet_to_json(worksheet);
 
     const preview = {
       totalProducts: data.length,
@@ -35,13 +35,13 @@ async function previewImportFromClientExcel(filePath) {
     
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const grupo = row.__EMPTY_5;
-      const nombre = row.__EMPTY_3;
-      const codigo = row.__EMPTY_2;
+      const grupo = row.GRUPO || row.grupo;
+      const nombre = row.NOMBRE || row.nombre;
+      const codigo = row.CODIGO || row.codigo;
 
       if (nombre && codigo) {
         preview.products.push({
-          row: i + 4, // +4 porque empezamos en fila 4 del Excel
+          row: i + 2, // +2 porque fila 1 son encabezados
           sku: codigo.toString(),
           name: nombre,
           category: grupo || 'Sin categoría',
@@ -115,8 +115,8 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Leer desde la fila 4 (índice 3) saltando: título, fila vacía/subtítulo y encabezados
-    const data = XLSX.utils.sheet_to_json(worksheet, { range: 3 });
+    // Leer desde fila 1 (encabezados) - sheet_to_json automáticamente usa fila 1 como encabezados
+    const data = XLSX.utils.sheet_to_json(worksheet);
 
     const results = {
       success: [],
@@ -137,25 +137,24 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowNumber = i + 2;
+      const rowNumber = i + 2; // +2 porque fila 1 son encabezados
 
       try {
-        // Mapear directamente por índices __EMPTY según la estructura del Excel
-        // Basado en el debug: __EMPTY_2 = CODIGO, __EMPTY_3 = NOMBRE, etc.
-        const codigoSS = row.__EMPTY;
-        const codigoFabricante = row.__EMPTY_1;
-        const codigo = row.__EMPTY_2;
-        const nombre = row.__EMPTY_3;
-        const proveedor = row.__EMPTY_4;
-        const grupo = row.__EMPTY_5;
-        const marca = row.__EMPTY_6;
-        const procedencia = row.__EMPTY_7;
-        const und = row.__EMPTY_8;
-        const almacen = row.__EMPTY_9;
-        const observaciones = row.__EMPTY_10;
-        const precioCompra = row.__EMPTY_11;
-        const cantidad = row.__EMPTY_12;
-        const precioVenta = row.__EMPTY_13;
+        // Mapear usando nombres de columnas del Excel
+        const codigoSS = row['CODIGO SS'] || row['CODIGO_SS'] || row.CODIGO_SS;
+        const codigoFabricante = row['CODIGO FABRICANTE'] || row['CODIGO_FABRICANTE'] || row.CODIGO_FABRICANTE;
+        const codigo = row.CODIGO || row.codigo;
+        const nombre = row.NOMBRE || row.nombre;
+        const proveedor = row.PROVEEDOR || row.proveedor;
+        const grupo = row.GRUPO || row.grupo;
+        const marca = row.MARCA || row.marca;
+        const procedencia = row.PROCEDENCIA || row.procedencia;
+        const und = row.UND || row.und;
+        const almacen = row.ALMACEN || row.almacen;
+        const observaciones = row.OBSERVACIONES || row.observaciones;
+        const precioCompra = row['PRECIO DE COMPRA'] || row['PRECIO_DE_COMPRA'] || row.PRECIO_DE_COMPRA;
+        const cantidad = row.CANTIDAD || row.cantidad;
+        const precioVenta = row['PRECIO DE VENTA'] || row['PRECIO_DE_VENTA'] || row.PRECIO_DE_VENTA;
 
         // Debug de la primera fila
         if (i === 0) {
@@ -172,6 +171,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           console.log('precioVenta:', precioVenta);
           console.log('cantidad:', cantidad);
           console.log('codigoFabricante:', codigoFabricante);
+          console.log('codigoSS:', codigoSS);
           console.log('========================');
         }
 
