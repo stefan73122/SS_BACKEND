@@ -127,6 +127,15 @@ async function previewImportFromClientExcel(filePath) {
  *                                    Formato: { "categoriaExcel": "categoriaIdSistema" }
  */
 async function importProductsFromClientExcel(filePath, userId, warehouseId, categoryMappings = {}) {
+  // Verificar conexión a la base de datos antes de empezar
+  try {
+    await prisma.$connect();
+    console.log('[Excel Import] Conexión a base de datos establecida');
+  } catch (error) {
+    console.error('[Excel Import] Error conectando a base de datos:', error);
+    throw new Error('No se pudo conectar a la base de datos. Intenta de nuevo.');
+  }
+
   // Si no viene userId, buscar un admin como fallback
   if (!userId) {
     const adminUser = await prisma.user.findFirst({
