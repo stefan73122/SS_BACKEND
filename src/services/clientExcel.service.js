@@ -45,9 +45,9 @@ async function previewImportFromClientExcel(filePath) {
     
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const grupo = row.GRUPO || row.grupo;
+      const grupo = row.CATEGORIA || row.categoria || row.GRUPO || row.grupo;
       const nombre = row.NOMBRE || row.nombre;
-      const codigo = row.CODIGO || row.codigo;
+      const codigo = row.SKU || row.sku || row.CODIGO || row.codigo;
 
       // Debug primera fila
       if (i === 0) {
@@ -162,18 +162,18 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         // Mapear usando nombres de columnas del Excel
         const codigoSS = row['CODIGO SS'] || row['CODIGO_SS'] || row.CODIGO_SS;
         const codigoFabricante = row['CODIGO FABRICANTE'] || row['CODIGO_FABRICANTE'] || row.CODIGO_FABRICANTE;
-        const codigo = row.CODIGO || row.codigo;
+        const codigo = row.SKU || row.sku || row.CODIGO || row.codigo;
         const nombre = row.NOMBRE || row.nombre;
         const proveedor = row.PROVEEDOR || row.proveedor;
-        const grupo = row.GRUPO || row.grupo;
+        const grupo = row.CATEGORIA || row.categoria || row.GRUPO || row.grupo;
         const marca = row.MARCA || row.marca;
         const procedencia = row.PROCEDENCIA || row.procedencia;
-        const und = row.UND || row.und;
+        const und = row.UNIDAD || row.unidad || row.UND || row.und;
         const almacen = row.ALMACEN || row.almacen;
-        const observaciones = row.OBSERVACIONES || row.observaciones;
-        const precioCompra = row['PRECIO DE COMPRA'] || row['PRECIO_DE_COMPRA'] || row.PRECIO_DE_COMPRA;
+        const observaciones = row.DESCRIPCION || row.descripcion || row.OBSERVACIONES || row.observaciones;
+        const precioCompra = row.PRECIO_COSTO || row['\tPRECIO_COSTO'] || row['PRECIO DE COMPRA'] || row['PRECIO_DE_COMPRA'] || row.PRECIO_DE_COMPRA;
         const cantidad = row.CANTIDAD || row.cantidad;
-        const precioVenta = row['PRECIO DE VENTA'] || row['PRECIO_DE_VENTA'] || row.PRECIO_DE_VENTA;
+        const precioVenta = row.PRECIO_VENTA || row['\tPRECIO_VENTA'] || row['PRECIO DE VENTA'] || row['PRECIO_DE_VENTA'] || row.PRECIO_DE_VENTA;
 
         // Debug de la primera fila
         if (i === 0) {
