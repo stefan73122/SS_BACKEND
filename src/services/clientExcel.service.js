@@ -145,6 +145,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
     if (adminUser) userId = adminUser.id;
   }
   console.log(`[Excel Import] userId resuelto: ${userId}`);
+  console.log(`[Excel Import] warehouseId recibido: ${warehouseId}`);
   try {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
@@ -193,7 +194,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         const almacen = row.ALMACEN || row.almacen;
         const observaciones = row.DESCRIPCION || row.descripcion || row.OBSERVACIONES || row.observaciones;
         const precioCompra = row.PRECIO_COSTO || row['\tPRECIO_COSTO'] || row['PRECIO DE COMPRA'] || row['PRECIO_DE_COMPRA'] || row.PRECIO_DE_COMPRA;
-        const cantidad = row.CANTIDAD || row.cantidad;
+        const cantidad = row.CANTIDAD || row.cantidad || row.STOCK || row.stock;
         const precioVenta = row.PRECIO_VENTA || row['\tPRECIO_VENTA'] || row['PRECIO DE VENTA'] || row['PRECIO_DE_VENTA'] || row.PRECIO_DE_VENTA;
 
         // Debug de la primera fila
@@ -326,13 +327,17 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         }
 
         // Asignar stock al almacén especificado en el parámetro
-        if (cantidad && warehouseId) {
-          // Parsear cantidad y validar
-          const quantityValue = parseFloat(cantidad);
+        console.log(`[Excel Import] Producto ${codigo}: cantidad=${cantidad}, warehouseId=${warehouseId}`);
+        
+        // SIEMPRE asignar al almacén seleccionado, incluso si cantidad es 0
+        if (warehouseId) {
+          // Parsear cantidad (usar 0 si no hay cantidad en el Excel)
+          const quantityValue = cantidad ? parseFloat(cantidad) : 0;
           
-          if (!isNaN(quantityValue) && quantityValue > 0) {
+          if (!isNaN(quantityValue) && quantityValue >= 0) {
             // Usar el almacén del parámetro
             const warehouseBigIntId = BigInt(warehouseId);
+            console.log(`[Excel Import] Asignando stock al almacén ID: ${warehouseBigIntId}`);
 
             // Verificar si ya existe stock para este producto en este almacén
             const existingStock = await prisma.warehouseStock.findFirst({
@@ -342,17 +347,19 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
               },
             });
 
-            const finalQty = Math.floor(quantityValue);
+            const finalQty = quantityValue >= 0 ? Math.floor(quantityValue) : 0;
             let previousQty = 0;
 
             if (existingStock) {
               previousQty = existingStock.quantity;
+              console.log(`[Excel Import] ✅ Actualizando stock existente en almacén ${warehouseBigIntId}: ${previousQty} → ${finalQty}`);
               // Actualizar stock existente
               await prisma.warehouseStock.update({
                 where: { id: existingStock.id },
                 data: { quantity: finalQty },
               });
             } else {
+              console.log(`[Excel Import] ✅ Creando nuevo stock en almacén ${warehouseBigIntId}: cantidad=${finalQty}`);
               // Crear nuevo registro de stock
               await prisma.warehouseStock.create({
                 data: {
@@ -363,7 +370,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
               });
             }
 
-            // Registrar movimiento de inventario si hay userId y hay cantidad
+            // Registrar movimiento de inventario solo si hay userId y cantidad mayor a 0
             if (userId && finalQty > 0) {
               const isNew = action === 'created';
               const movType = isNew ? 'INGRESO' : 'AJUSTE';
@@ -392,7 +399,11 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
             } else {
               console.log(`[Excel Import] ⚠️ Sin movimiento: userId=${userId}, finalQty=${finalQty}`);
             }
+          } else {
+            console.log(`[Excel Import] ❌ Cantidad inválida para producto ${codigo}: quantityValue=${quantityValue}`);
           }
+        } else {
+          console.log(`[Excel Import] ❌ ERROR CRÍTICO: warehouseId no está definido para producto ${codigo}`);
         }
 
         results.success.push({
