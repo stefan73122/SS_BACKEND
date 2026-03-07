@@ -34,7 +34,8 @@ async function create(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const quote = await quoteService.updateQuote(id, req.body);
+    const userId = req.user?.userId || req.user?.id;
+    const quote = await quoteService.updateQuote(id, { ...req.body, userId });
     res.json(serializeBigInt(quote));
   } catch (error) {
     res.status(400).json({ error: error.message });

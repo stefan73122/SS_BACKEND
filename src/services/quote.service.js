@@ -138,7 +138,23 @@ async function createQuote(data) {
 }
 
 async function updateQuote(id, data) {
-  const { status, quoteType, paymentType, validUntil, notes, discount, items } = data;
+  const { status, quoteType, paymentType, validUntil, notes, discount, items, userId, warehouseId } = data;
+
+  // Obtener cotización actual para verificar cambio de estado
+  const currentQuote = await prisma.quote.findUnique({
+    where: { id: BigInt(id) },
+    include: {
+      items: {
+        include: {
+          product: true,
+        },
+      },
+    },
+  });
+
+  if (!currentQuote) {
+    throw new Error('Cotización no encontrada');
+  }
 
   let updateData = {
     ...(status && { status }),
@@ -193,6 +209,80 @@ async function updateQuote(id, data) {
       },
     },
   });
+
+  // Si la cotización cambia a APROBADA, reducir inventario
+  if (status === 'APROBADA' && currentQuote.status !== 'APROBADA') {
+    console.log(`[Quote Service] Cotización ${currentQuote.quoteNumber} aprobada - reduciendo inventario`);
+    
+    if (!warehouseId) {
+      throw new Error('Se requiere un almacén para aprobar la cotización y reducir inventario');
+    }
+
+    if (!userId) {
+      throw new Error('Se requiere un usuario para registrar el movimiento de inventario');
+    }
+
+    // Crear movimiento de inventario por cada producto
+    for (const item of quote.items) {
+      if (item.productId && item.itemType === 'PRODUCT') {
+        try {
+          // Verificar stock disponible
+          const stock = await prisma.warehouseStock.findUnique({
+            where: {
+              productId_warehouseId: {
+                productId: item.productId,
+                warehouseId: BigInt(warehouseId),
+              },
+            },
+          });
+
+          if (!stock || stock.quantity < item.quantity) {
+            console.warn(`[Quote Service] Stock insuficiente para producto ${item.product?.sku}: disponible=${stock?.quantity || 0}, requerido=${item.quantity}`);
+            throw new Error(`Stock insuficiente para ${item.product?.name || 'producto'}. Disponible: ${stock?.quantity || 0}, Requerido: ${item.quantity}`);
+          }
+
+          // Crear movimiento de egreso
+          await prisma.inventoryMovement.create({
+            data: {
+              type: 'EGRESO',
+              reason: 'VENTA',
+              note: `Venta por cotización ${currentQuote.quoteNumber}`,
+              createdBy: BigInt(userId),
+              warehouseFromId: BigInt(warehouseId),
+              items: {
+                create: {
+                  productId: item.productId,
+                  quantity: item.quantity,
+                },
+              },
+            },
+          });
+
+          // Reducir stock
+          await prisma.warehouseStock.update({
+            where: {
+              productId_warehouseId: {
+                productId: item.productId,
+                warehouseId: BigInt(warehouseId),
+              },
+            },
+            data: {
+              quantity: {
+                decrement: item.quantity,
+              },
+            },
+          });
+
+          console.log(`[Quote Service] ✅ Stock reducido para ${item.product?.sku}: -${item.quantity}`);
+        } catch (error) {
+          console.error(`[Quote Service] ❌ Error reduciendo stock para producto ${item.product?.sku}:`, error.message);
+          throw error;
+        }
+      }
+    }
+
+    console.log(`[Quote Service] ✅ Inventario reducido exitosamente para cotización ${currentQuote.quoteNumber}`);
+  }
 
   return normalizeQuote(quote);
 }
