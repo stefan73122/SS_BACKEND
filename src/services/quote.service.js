@@ -223,7 +223,7 @@ async function updateQuote(id, data) {
     }
 
     // Crear movimiento de inventario por cada producto
-    for (const item of quote.items) {
+    for (const item of currentQuote.items) {
       if (item.productId && item.itemType === 'PRODUCT') {
         try {
           // Verificar stock disponible
