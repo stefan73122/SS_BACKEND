@@ -236,9 +236,10 @@ async function updateQuote(id, data) {
             },
           });
 
-          if (!stock || stock.quantity < item.quantity) {
-            console.warn(`[Quote Service] Stock insuficiente para producto ${item.product?.sku}: disponible=${stock?.quantity || 0}, requerido=${item.quantity}`);
-            throw new Error(`Stock insuficiente para ${item.product?.name || 'producto'}. Disponible: ${stock?.quantity || 0}, Requerido: ${item.quantity}`);
+          const availableStock = stock ? parseFloat(stock.quantity) : 0;
+          if (!stock || availableStock < item.quantity) {
+            console.warn(`[Quote Service] Stock insuficiente para producto ${item.product?.sku}: disponible=${availableStock}, requerido=${item.quantity}`);
+            throw new Error(`Stock insuficiente para ${item.product?.name || 'producto'}. Disponible: ${availableStock}, Requerido: ${item.quantity}`);
           }
 
           // Crear movimiento de egreso
