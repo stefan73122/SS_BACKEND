@@ -27,8 +27,16 @@ async function getAllUsers({ page = 1, limit = 10, search = '' }) {
         email: true,
         fullName: true,
         isActive: true,
+        warehouseId: true,
         createdAt: true,
         updatedAt: true,
+        warehouse: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
         userRoles: {
           include: {
             role: true,
@@ -60,8 +68,16 @@ async function getUserById(id) {
       email: true,
       fullName: true,
       isActive: true,
+      warehouseId: true,
       createdAt: true,
       updatedAt: true,
+      warehouse: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+        },
+      },
       userRoles: {
         include: {
           role: true,
