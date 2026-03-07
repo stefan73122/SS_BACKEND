@@ -229,9 +229,9 @@ async function updateQuote(id, data) {
           // Verificar stock disponible
           const stock = await prisma.warehouseStock.findUnique({
             where: {
-              productId_warehouseId: {
-                productId: item.productId,
+              warehouseId_productId: {
                 warehouseId: BigInt(warehouseId),
+                productId: item.productId,
               },
             },
           });
@@ -261,9 +261,9 @@ async function updateQuote(id, data) {
           // Reducir stock
           await prisma.warehouseStock.update({
             where: {
-              productId_warehouseId: {
-                productId: item.productId,
+              warehouseId_productId: {
                 warehouseId: BigInt(warehouseId),
+                productId: item.productId,
               },
             },
             data: {

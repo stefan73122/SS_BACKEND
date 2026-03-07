@@ -52,9 +52,9 @@ async function createMovement(data) {
 
   const stock = await prisma.warehouseStock.findUnique({
     where: {
-      productId_warehouseId: {
-        productId: BigInt(productId),
+      warehouseId_productId: {
         warehouseId: BigInt(warehouseId),
+        productId: BigInt(productId),
       },
     },
   });
@@ -86,9 +86,9 @@ async function createMovement(data) {
 
     await tx.warehouseStock.upsert({
       where: {
-        productId_warehouseId: {
-          productId: BigInt(productId),
+        warehouseId_productId: {
           warehouseId: BigInt(warehouseId),
+          productId: BigInt(productId),
         },
       },
       update: {

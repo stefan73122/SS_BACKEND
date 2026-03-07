@@ -106,7 +106,7 @@ async function createMovement(data) {
 
   if (type === 'EGRESO') {
     const stock = await prisma.warehouseStock.findUnique({
-      where: { productId_warehouseId: { productId: BigInt(productId), warehouseId: BigInt(warehouseId) } },
+      where: { warehouseId_productId: { warehouseId: BigInt(warehouseId), productId: BigInt(productId) } },
     });
     if (!stock || stock.quantity < qty) {
       throw new Error(`Stock insuficiente. Stock actual: ${stock?.quantity || 0}`);
@@ -141,7 +141,7 @@ async function createMovement(data) {
 
     const stockDelta = type === 'EGRESO' ? -qty : qty;
     await tx.warehouseStock.upsert({
-      where: { productId_warehouseId: { productId: BigInt(productId), warehouseId: BigInt(warehouseId) } },
+      where: { warehouseId_productId: { warehouseId: BigInt(warehouseId), productId: BigInt(productId) } },
       update: { quantity: { increment: stockDelta } },
       create: { productId: BigInt(productId), warehouseId: BigInt(warehouseId), quantity: Math.max(0, stockDelta) },
     });
