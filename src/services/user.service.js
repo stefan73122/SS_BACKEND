@@ -78,7 +78,7 @@ async function getUserById(id) {
 }
 
 async function createUser(data) {
-  const { username, email, password, fullName, isActive = true } = data;
+  const { username, email, password, fullName, isActive = true, warehouseId } = data;
 
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -107,6 +107,7 @@ async function createUser(data) {
       passwordHash: hashedPassword,
       fullName,
       isActive,
+      ...(warehouseId && { warehouseId: BigInt(warehouseId) }),
     },
     select: {
       id: true,
@@ -114,6 +115,7 @@ async function createUser(data) {
       email: true,
       fullName: true,
       isActive: true,
+      warehouseId: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -123,7 +125,7 @@ async function createUser(data) {
 }
 
 async function updateUser(id, data) {
-  const { username, email, password, fullName, isActive } = data;
+  const { username, email, password, fullName, isActive, warehouseId } = data;
 
   const existingUser = await prisma.user.findUnique({
     where: { id: BigInt(id) },
@@ -163,6 +165,7 @@ async function updateUser(id, data) {
     ...(email && { email }),
     ...(fullName !== undefined && { fullName }),
     ...(isActive !== undefined && { isActive }),
+    ...(warehouseId !== undefined && { warehouseId: warehouseId ? BigInt(warehouseId) : null }),
   };
 
   // Si se proporciona una nueva contraseña, hashearla
@@ -179,6 +182,7 @@ async function updateUser(id, data) {
       email: true,
       fullName: true,
       isActive: true,
+      warehouseId: true,
       createdAt: true,
       updatedAt: true,
     },

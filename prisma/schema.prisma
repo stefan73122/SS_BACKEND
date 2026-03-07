@@ -156,9 +156,11 @@ model User {
   passwordHash String    @map("password_hash") @db.VarChar(255)
   fullName     String?   @map("full_name") @db.VarChar(150)
   isActive     Boolean   @default(true) @map("is_active")
+  warehouseId  BigInt?   @map("warehouse_id")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime? @updatedAt @map("updated_at")
 
+  warehouse             Warehouse?            @relation(fields: [warehouseId], references: [id])
   userRoles             UserRole[]
   inventoryMovements    InventoryMovement[]
   kits                  Kit[]
@@ -344,6 +346,7 @@ model Warehouse {
   parent   Warehouse?  @relation("WarehouseHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children Warehouse[] @relation("WarehouseHierarchy")
 
+  users                  User[]
   warehouseStocks        WarehouseStock[]
   movementsFrom          InventoryMovement[]    @relation("MovementFrom")
   movementsTo            InventoryMovement[]    @relation("MovementTo")

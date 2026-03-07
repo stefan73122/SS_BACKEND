@@ -214,12 +214,25 @@ async function updateQuote(id, data) {
   if (status === 'APROBADA' && currentQuote.status !== 'APROBADA') {
     console.log(`[Quote Service] Cotización ${currentQuote.quoteNumber} aprobada - reduciendo inventario`);
     
-    if (!warehouseId) {
-      throw new Error('Se requiere un almacén para aprobar la cotización y reducir inventario');
-    }
-
     if (!userId) {
       throw new Error('Se requiere un usuario para registrar el movimiento de inventario');
+    }
+
+    // Obtener el almacén asignado al usuario
+    let userWarehouseId = warehouseId;
+    
+    if (!userWarehouseId) {
+      const user = await prisma.user.findUnique({
+        where: { id: BigInt(userId) },
+        select: { warehouseId: true },
+      });
+      
+      if (user && user.warehouseId) {
+        userWarehouseId = user.warehouseId.toString();
+        console.log(`[Quote Service] Usando almacén asignado al usuario: ${userWarehouseId}`);
+      } else {
+        throw new Error('El usuario no tiene un almacén asignado. Contacte al administrador.');
+      }
     }
 
     // Crear movimiento de inventario por cada producto
@@ -230,7 +243,7 @@ async function updateQuote(id, data) {
           const stock = await prisma.warehouseStock.findUnique({
             where: {
               warehouseId_productId: {
-                warehouseId: BigInt(warehouseId),
+                warehouseId: BigInt(userWarehouseId),
                 productId: item.productId,
               },
             },
@@ -249,7 +262,7 @@ async function updateQuote(id, data) {
               reason: 'VENTA',
               note: `Venta por cotización ${currentQuote.quoteNumber}`,
               createdBy: BigInt(userId),
-              warehouseFromId: BigInt(warehouseId),
+              warehouseFromId: BigInt(userWarehouseId),
               items: {
                 create: {
                   productId: item.productId,
@@ -263,7 +276,7 @@ async function updateQuote(id, data) {
           await prisma.warehouseStock.update({
             where: {
               warehouseId_productId: {
-                warehouseId: BigInt(warehouseId),
+                warehouseId: BigInt(userWarehouseId),
                 productId: item.productId,
               },
             },
