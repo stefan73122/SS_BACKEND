@@ -298,6 +298,47 @@ async function updateQuote(id, data) {
     console.log(`[Quote Service] ✅ Inventario reducido exitosamente para cotización ${currentQuote.quoteNumber}`);
   }
 
+  // Si se aprobó la cotización, obtener los movimientos de inventario creados
+  if (status === 'APROBADA' && currentQuote.status !== 'APROBADA') {
+    const inventoryMovements = await prisma.inventoryMovement.findMany({
+      where: {
+        createdBy: BigInt(userId),
+        type: 'EGRESO',
+        reason: 'VENTA',
+        note: {
+          contains: currentQuote.quoteNumber,
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+          },
+        },
+        warehouseFrom: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const result = normalizeQuote(quote);
+    result.inventoryMovements = inventoryMovements;
+    return result;
+  }
+
   return normalizeQuote(quote);
 }
 
