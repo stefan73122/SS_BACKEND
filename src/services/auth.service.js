@@ -74,6 +74,7 @@ async function login({ email, password }) {
       email: user.email,
       username: user.username,
       fullName: user.fullName,
+      warehouseId: user.warehouseId ? user.warehouseId.toString() : null,
       roles,
       permissions: uniquePermissions,
     }, 
