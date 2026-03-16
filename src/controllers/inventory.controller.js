@@ -56,6 +56,48 @@ async function getInventory(req, res) {
   }
 }
 
+async function getInventoryByUserWarehouse(req, res) {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    const { page, limit, search, categoryId, lowStockOnly } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
+
+    // Obtener el warehouseId del usuario
+    const prisma = require('../prisma/client');
+    const user = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: { warehouseId: true },
+    });
+
+    if (!user || !user.warehouseId) {
+      return res.status(400).json({ 
+        error: 'El usuario no tiene un almacén asignado',
+        code: 'NO_WAREHOUSE_ASSIGNED'
+      });
+    }
+
+    const result = await inventoryService.getInventory({ 
+      page, 
+      limit, 
+      search, 
+      categoryId, 
+      warehouseId: user.warehouseId.toString(),
+      lowStockOnly: lowStockOnly === 'true'
+    });
+
+    res.json(serializeBigInt({
+      ...result,
+      warehouseId: user.warehouseId.toString(),
+      message: 'Productos filtrados por el almacén asignado al usuario'
+    }));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 async function getLowStock(req, res) {
   try {
     const products = await inventoryService.getLowStockProducts();
@@ -81,6 +123,7 @@ module.exports = {
   createMovement,
   getMovements,
   getInventory,
+  getInventoryByUserWarehouse,
   getLowStock,
   transferStock,
 };

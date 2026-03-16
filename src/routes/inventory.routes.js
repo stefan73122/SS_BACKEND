@@ -18,6 +18,7 @@ router.delete('/warehouses/:id', warehouseController.deleteWarehouse);
 
 // Rutas de Inventario
 router.get('/', inventoryController.getInventory);
+router.get('/my-warehouse', inventoryController.getInventoryByUserWarehouse);
 router.get('/movements', inventoryController.getMovements);
 router.get('/low-stock', inventoryController.getLowStock);
 router.post('/movements', requirePermission('inventory.movements'), inventoryController.createMovement);

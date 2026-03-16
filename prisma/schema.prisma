@@ -138,6 +138,7 @@ model CompanySettings {
   address             String?   @db.VarChar(255)
   city                String?   @db.VarChar(100)
   country             String?   @db.VarChar(100)
+  website             String?   @db.VarChar(255)
   logoPath            String?   @map("logo_path") @db.VarChar(255)
   defaultCurrency     String    @default("BOB") @map("default_currency") @db.VarChar(10)
   defaultCreditDays   Int?      @default(60) @map("default_credit_days")
