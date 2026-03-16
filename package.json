@@ -8,7 +8,9 @@
     "start": "node src/app.js",
     "build": "prisma db push --accept-data-loss && prisma generate && npm run seed",
     "prisma:generate": "prisma generate",
-    "seed": "node scripts/seed-initial-data.js"
+    "seed": "node scripts/seed-initial-data.js",
+    "reset": "node scripts/reset-database.js",
+    "reset:seed": "npm run reset && npm run seed"
   },
   "keywords": [],
   "author": "RCE",
