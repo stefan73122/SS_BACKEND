@@ -189,7 +189,7 @@ async function createServiceQuote(data) {
       version: version || 1,
       clientId: BigInt(clientId),
       createdBy: BigInt(createdBy),
-      status: 'BORRADOR',
+      status: 'PENDIENTE',
       quoteType: 'SERVICIOS',
       paymentType: paymentType || 'CONTADO',
       validUntil: validUntil ? new Date(validUntil) : null,

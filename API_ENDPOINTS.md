@@ -386,7 +386,7 @@ GET /api/quotes?page=1&limit=10&search=COT&status=ENVIADA&clientId=1&quoteType=P
 - `page` (opcional): Número de página
 - `limit` (opcional): Items por página
 - `search` (opcional): Buscar por número de cotización o nombre de cliente
-- `status` (opcional): Filtrar por estado (BORRADOR, ENVIADA, APROBADA, RECHAZADA, VENCIDA)
+- `status` (opcional): Filtrar por estado (PENDIENTE, ENVIADA, APROBADA, RECHAZADA, VENCIDA)
 - `clientId` (opcional): Filtrar por cliente
 - `quoteType` (opcional): Filtrar por tipo (PRODUCTOS, SERVICIOS)
 
@@ -1422,7 +1422,7 @@ GET /api/reports/sales?startDate=2024-01-01&endDate=2024-12-31&userId=2&status=A
 - `startDate` (opcional): Fecha inicio (ISO 8601)
 - `endDate` (opcional): Fecha fin (ISO 8601)
 - `userId` (opcional): Filtrar por empleado específico
-- `status` (opcional): `BORRADOR`, `ENVIADA`, `APROBADA`, `RECHAZADA`, `VENCIDA`
+- `status` (opcional): `PENDIENTE`, `ENVIADA`, `APROBADA`, `RECHAZADA`, `VENCIDA`
 - `page` / `limit` (opcional): Paginación
 
 **Respuesta exitosa (200):**
@@ -1554,7 +1554,7 @@ GET /api/reports/inventory?startDate=2024-01-01&endDate=2024-12-31&type=EGRESO&w
 
 7. **Tipos de Pago**: `CONTADO` o `CREDITO`
 
-8. **Estados de Cotización**: `BORRADOR`, `ENVIADA`, `APROBADA`, `RECHAZADA`, `VENCIDA`
+8. **Estados de Cotización**: `PENDIENTE`, `ENVIADA`, `APROBADA`, `RECHAZADA`, `VENCIDA`
 
 9. **Sistema de Roles y Permisos**:
    - Un usuario puede tener múltiples roles

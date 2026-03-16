@@ -112,7 +112,7 @@ async function createQuote(data) {
       quoteNumber,
       clientId: BigInt(clientId),
       createdBy: BigInt(createdBy),
-      status: 'BORRADOR',
+      status: 'PENDIENTE',
       quoteType: quoteType || 'PRODUCTOS',
       paymentType: paymentType || 'CONTADO',
       validUntil: validUntil ? new Date(validUntil) : null,

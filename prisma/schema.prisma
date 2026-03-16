@@ -46,7 +46,7 @@ enum MovementReason {
 }
 
 enum QuoteStatus {
-  BORRADOR
+  PENDIENTE
   ENVIADA
   APROBADA
   RECHAZADA
@@ -459,7 +459,7 @@ model Quote {
   version         Int         @default(1)
   clientId        BigInt      @map("client_id")
   createdBy       BigInt      @map("created_by")
-  status          QuoteStatus @default(BORRADOR)
+  status          QuoteStatus @default(PENDIENTE)
   quoteType       QuoteType   @default(PRODUCTOS) @map("quote_type")
   paymentType     PaymentType @default(CONTADO) @map("payment_type")
   validUntil      DateTime?   @map("valid_until") @db.Date

@@ -126,7 +126,7 @@ Sistema completo para gestionar cotizaciones de servicios con todos los campos n
   "version": 2,
   "clientId": "1",
   "createdBy": "1",
-  "status": "BORRADOR",
+  "status": "PENDIENTE",
   "quoteType": "SERVICIOS",
   "paymentType": "CONTADO",
   "validUntil": "2026-03-31T00:00:00.000Z",
@@ -220,13 +220,13 @@ Sistema completo para gestionar cotizaciones de servicios con todos los campos n
 | `page` | number | Número de página (default: 1) |
 | `limit` | number | Items por página (default: 10) |
 | `search` | string | Buscar por número de cotización o nombre de cliente |
-| `status` | string | Filtrar por estado: BORRADOR, ENVIADA, APROBADA, RECHAZADA, VENCIDA |
+| `status` | string | Filtrar por estado: PENDIENTE, ENVIADA, APROBADA, RECHAZADA, VENCIDA |
 | `clientId` | string/number | Filtrar por ID de cliente |
 
 ### Ejemplo
 
 ```
-GET /api/service-quotes?page=1&limit=10&status=BORRADOR&search=SMART
+GET /api/service-quotes?page=1&limit=10&status=PENDIENTE&search=SMART
 ```
 
 ---
@@ -301,7 +301,7 @@ Retorna todos los datos formateados para generar el PDF de la cotización, inclu
     "issueDate": "2026-02-25T00:00:00.000Z",
     "validUntil": "2026-03-31T00:00:00.000Z",
     "paymentType": "CONTADO",
-    "status": "BORRADOR",
+    "status": "PENDIENTE",
     "version": 2,
     "client": {
       "name": "SMART SERVICES S.R.L.",
@@ -355,7 +355,7 @@ Retorna todos los datos formateados para generar el PDF de la cotización, inclu
 
 | Estado | Descripción |
 |--------|-------------|
-| `BORRADOR` | Cotización en proceso de creación |
+| `PENDIENTE` | Cotización en proceso de creación |
 | `ENVIADA` | Cotización enviada al cliente |
 | `APROBADA` | Cotización aprobada por el cliente |
 | `RECHAZADA` | Cotización rechazada |

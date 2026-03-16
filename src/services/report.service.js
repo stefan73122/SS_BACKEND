@@ -133,7 +133,7 @@ async function getEmployeeReport({ userId, startDate, endDate }) {
     // Calcular totales del empleado
     const totalSales = quotes.reduce((sum, q) => sum + (parseFloat(q.grandTotal) || 0), 0);
     const approvedQuotes = quotes.filter(q => q.status === 'APROBADA').length;
-    const pendingQuotes = quotes.filter(q => q.status === 'BORRADOR' || q.status === 'ENVIADA').length;
+    const pendingQuotes = quotes.filter(q => q.status === 'PENDIENTE' || q.status === 'ENVIADA').length;
 
     return {
       user: {
