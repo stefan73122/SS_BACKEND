@@ -1,0 +1,2 @@
+-- AlterEnum: Change QuoteStatus from BORRADOR to PENDIENTE
+ALTER TYPE "QuoteStatus" RENAME VALUE 'BORRADOR' TO 'PENDIENTE';
