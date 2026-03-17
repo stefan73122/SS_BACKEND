@@ -63,8 +63,8 @@ Authorization: Bearer {token}
         "creator": {
           "id": "5",
           "username": "juan.perez",
-          "firstName": "Juan",
-          "lastName": "Pérez"
+          "email": "juan@example.com",
+          "fullName": "Juan Pérez"
         }
       }
     },
@@ -174,8 +174,9 @@ interface CreditPayment {
       phone: string;
     };
     creator: {
-      firstName: string;
-      lastName: string;
+      username: string;
+      email: string;
+      fullName: string;
     };
   };
 }

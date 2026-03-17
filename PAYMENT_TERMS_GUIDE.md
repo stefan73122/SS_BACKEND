@@ -112,8 +112,7 @@ interface User {
   id: string;
   username: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
 }
 ```
 
@@ -136,8 +135,7 @@ Ahora incluye `creator` y `paymentTerms`:
         "id": "5",
         "username": "juan.perez",
         "email": "juan@example.com",
-        "firstName": "Juan",
-        "lastName": "Pérez"
+        "fullName": "Juan Pérez"
       },
       "paymentTerms": [
         {
@@ -343,7 +341,7 @@ function QuoteDetail({ quote }: { quote: Quote }) {
       {/* Información del vendedor */}
       <div className="seller-info">
         <h3>Vendedor</h3>
-        <p>{quote.creator.firstName} {quote.creator.lastName}</p>
+        <p>{quote.creator.fullName}</p>
         <p>{quote.creator.email}</p>
       </div>
 
