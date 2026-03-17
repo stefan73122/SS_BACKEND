@@ -455,26 +455,27 @@ model KitItem {
 // ─── QUOTES ──────────────────────────────────────────────────────────────────
 
 model Quote {
-  id              BigInt      @id @default(autoincrement())
-  quoteNumber     String      @unique @map("quote_number") @db.VarChar(50)
-  version         Int         @default(1)
-  clientId        BigInt      @map("client_id")
-  createdBy       BigInt      @map("created_by")
-  status          QuoteStatus @default(PENDIENTE)
-  quoteType       QuoteType   @default(PRODUCTOS) @map("quote_type")
-  paymentType     PaymentType @default(CONTADO) @map("payment_type")
-  validUntil      DateTime?   @map("valid_until") @db.Date
-  issueDate       DateTime    @default(now()) @map("issue_date") @db.Date
-  currency        String      @default("BOB") @db.VarChar(10)
-  subtotal        Decimal     @default(0) @db.Decimal(14, 2)
-  taxTotal        Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
-  discountTotal   Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)
-  grandTotal      Decimal     @default(0) @map("grand_total") @db.Decimal(14, 2)
-  termsConditions String?     @map("terms_conditions")
-  observations    String?
-  pdfPath         String?     @map("pdf_path") @db.VarChar(255)
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime?   @updatedAt @map("updated_at")
+  id                    BigInt      @id @default(autoincrement())
+  quoteNumber           String      @unique @map("quote_number") @db.VarChar(50)
+  version               Int         @default(1)
+  clientId              BigInt      @map("client_id")
+  createdBy             BigInt      @map("created_by")
+  status                QuoteStatus @default(PENDIENTE)
+  quoteType             QuoteType   @default(PRODUCTOS) @map("quote_type")
+  paymentType           PaymentType @default(CONTADO) @map("payment_type")
+  cashPaymentPercentage Decimal?    @default(0) @map("cash_payment_percentage") @db.Decimal(5, 2)
+  validUntil            DateTime?   @map("valid_until") @db.Date
+  issueDate             DateTime    @default(now()) @map("issue_date") @db.Date
+  currency              String      @default("BOB") @db.VarChar(10)
+  subtotal              Decimal     @default(0) @db.Decimal(14, 2)
+  taxTotal              Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
+  discountTotal         Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)
+  grandTotal            Decimal     @default(0) @map("grand_total") @db.Decimal(14, 2)
+  termsConditions       String?     @map("terms_conditions")
+  observations          String?
+  pdfPath               String?     @map("pdf_path") @db.VarChar(255)
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime?   @updatedAt @map("updated_at")
 
   client  Client @relation(fields: [clientId], references: [id])
   creator User   @relation(fields: [createdBy], references: [id])
