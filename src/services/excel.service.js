@@ -28,6 +28,15 @@ async function importProductsFromExcel(filePath) {
           continue;
         }
 
+        if (!row.unitId) {
+          results.errors.push({
+            row: rowNumber,
+            error: 'El campo unitId es obligatorio. Debe especificar la unidad del producto (pieza, metro, litro, etc.)',
+            data: row,
+          });
+          continue;
+        }
+
         const existing = await prisma.product.findUnique({
           where: { sku: row.sku },
         });
@@ -48,8 +57,8 @@ async function importProductsFromExcel(filePath) {
           costPrice: row.costPrice ? parseFloat(row.costPrice) : null,
           salePrice: row.salePrice ? parseFloat(row.salePrice) : null,
           minStock: row.minStock ? parseInt(row.minStock) : null,
+          unitId: BigInt(row.unitId),
           ...(row.categoryId && { categoryId: BigInt(row.categoryId) }),
-          ...(row.unitId && { unitId: BigInt(row.unitId) }),
         };
 
         const product = await prisma.product.create({

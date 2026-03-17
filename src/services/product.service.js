@@ -87,6 +87,10 @@ async function getProductById(id) {
 async function createProduct(data) {
   const { name, sku, description, categoryId, unitId, costPrice, salePrice, minStock } = data;
 
+  if (!unitId) {
+    throw new Error('La unidad es obligatoria para crear un producto');
+  }
+
   const existingProduct = await prisma.product.findUnique({
     where: { sku },
   });
@@ -101,7 +105,7 @@ async function createProduct(data) {
       sku,
       description,
       categoryId: categoryId ? BigInt(categoryId) : null,
-      unitId: unitId ? BigInt(unitId) : null,
+      unitId: BigInt(unitId),
       costPrice,
       salePrice,
       minStock: minStock || 0,
