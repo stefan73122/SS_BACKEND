@@ -6,7 +6,33 @@ async function seedInitialData() {
   try {
     console.log('🌱 Iniciando seeder de datos iniciales...\n');
 
-    // 1. CREAR PERMISOS
+    // 1. CREAR UNIDADES
+    console.log('📏 Creando unidades de medida...');
+    const unitsData = [
+      { code: 'PZA', name: 'Pieza' },
+      { code: 'MTR', name: 'Metro' },
+      { code: 'LTR', name: 'Litro' },
+      { code: 'KG', name: 'Kilogramo' },
+      { code: 'GR', name: 'Gramo' },
+      { code: 'M2', name: 'Metro Cuadrado' },
+      { code: 'M3', name: 'Metro Cúbico' },
+      { code: 'PAR', name: 'Par' },
+      { code: 'SET', name: 'Set' },
+      { code: 'CAJA', name: 'Caja' },
+      { code: 'PAQUETE', name: 'Paquete' },
+      { code: 'ROLLO', name: 'Rollo' },
+    ];
+
+    for (const unitData of unitsData) {
+      await prisma.unit.upsert({
+        where: { code: unitData.code },
+        update: {},
+        create: unitData,
+      });
+    }
+    console.log(`✅ ${unitsData.length} unidades creadas\n`);
+
+    // 2. CREAR PERMISOS
     console.log('📝 Creando permisos...');
     const permissionsData = [
       // Usuarios
@@ -71,6 +97,12 @@ async function seedInitialData() {
 
       // Reportes
       { code: 'reports.view', description: 'Ver reportes completos', module: 'Reportes' },
+
+      // Unidades
+      { code: 'units.view', description: 'Ver unidades de medida', module: 'Unidades' },
+      { code: 'units.create', description: 'Crear unidades de medida', module: 'Unidades' },
+      { code: 'units.update', description: 'Actualizar unidades de medida', module: 'Unidades' },
+      { code: 'units.delete', description: 'Eliminar unidades de medida', module: 'Unidades' },
     ];
 
     const createdPermissions = [];
