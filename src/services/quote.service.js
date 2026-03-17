@@ -38,10 +38,22 @@ async function getAllQuotes({ page = 1, limit = 10, search = '', status = null, 
       take: limitNum,
       include: {
         client: true,
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
         items: {
           include: {
             product: true,
           },
+        },
+        paymentTerms: {
+          orderBy: { installmentNumber: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -65,10 +77,22 @@ async function getQuoteById(id) {
     where: { id: BigInt(id) },
     include: {
       client: true,
+      creator: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
       items: {
         include: {
           product: true,
         },
+      },
+      paymentTerms: {
+        orderBy: { installmentNumber: 'asc' },
       },
       hiddenCosts: true,
       stockCheck: true,
