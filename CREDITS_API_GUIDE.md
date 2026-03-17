@@ -6,7 +6,34 @@ Nueva sección **"Créditos"** para visualizar todos los pagos a crédito con su
 
 ---
 
-## 🔗 Endpoints Disponibles
+## � Permisos Requeridos
+
+Para acceder a la sección de créditos, los usuarios deben tener los siguientes permisos:
+
+### Permisos Disponibles:
+- **`credits.view`** - Ver pagos a crédito y resumen
+  - Permite acceder a `GET /api/credits`
+  - Permite acceder a `GET /api/credits/summary`
+  
+- **`credits.manage`** - Gestionar pagos a crédito (futuro)
+  - Reservado para funcionalidades de gestión avanzada
+  
+- **`credits.mark-paid`** - Marcar pagos como pagados
+  - Permite acceder a `PATCH /api/credits/:id/mark-paid`
+
+### Asignación de Permisos:
+
+**Roles recomendados:**
+- **Administrador**: Todos los permisos de créditos
+- **Contador/Finanzas**: `credits.view`, `credits.mark-paid`
+- **Vendedor**: `credits.view` (solo lectura)
+- **Bodeguero**: Sin acceso
+
+Los permisos se crean automáticamente al ejecutar el seeder de datos iniciales.
+
+---
+
+## �🔗 Endpoints Disponibles
 
 ### 1. GET `/api/credits`
 Obtiene todos los pagos a crédito con filtros y paginación.

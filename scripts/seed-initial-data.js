@@ -103,6 +103,11 @@ async function seedInitialData() {
       { code: 'units.create', description: 'Crear unidades de medida', module: 'Unidades' },
       { code: 'units.update', description: 'Actualizar unidades de medida', module: 'Unidades' },
       { code: 'units.delete', description: 'Eliminar unidades de medida', module: 'Unidades' },
+
+      // Créditos
+      { code: 'credits.view', description: 'Ver pagos a crédito', module: 'Créditos' },
+      { code: 'credits.manage', description: 'Gestionar pagos a crédito', module: 'Créditos' },
+      { code: 'credits.mark-paid', description: 'Marcar pagos como pagados', module: 'Créditos' },
     ];
 
     const createdPermissions = [];
