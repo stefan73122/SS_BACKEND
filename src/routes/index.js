@@ -16,10 +16,12 @@ const movementRoutes = require('./movement.routes');
 const reportRoutes = require('./report.routes');
 const unitRoutes = require('./unit.routes');
 const creditRoutes = require('./credit.routes');
+const healthRoutes = require('./health.routes');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
+router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
