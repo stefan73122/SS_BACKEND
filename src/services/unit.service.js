@@ -5,7 +5,11 @@ async function getAllUnits() {
     orderBy: { name: 'asc' },
   });
 
-  return units;
+  // Convertir BigInt a string para serialización JSON
+  return units.map(unit => ({
+    ...unit,
+    id: unit.id.toString(),
+  }));
 }
 
 async function getUnitById(id) {
@@ -17,7 +21,11 @@ async function getUnitById(id) {
     throw new Error('Unidad no encontrada');
   }
 
-  return unit;
+  // Convertir BigInt a string para serialización JSON
+  return {
+    ...unit,
+    id: unit.id.toString(),
+  };
 }
 
 module.exports = {
