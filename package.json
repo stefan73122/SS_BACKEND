@@ -7,6 +7,7 @@
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
     "build": "prisma db push --accept-data-loss && prisma generate && npm run seed",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "seed": "node scripts/seed-initial-data.js",
     "reset": "node scripts/reset-database.js",
