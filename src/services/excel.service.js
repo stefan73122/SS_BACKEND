@@ -18,47 +18,59 @@ async function importProductsFromExcel(filePath) {
       const row = data[i];
       const rowNumber = i + 2;
 
+      // Normalizar nombres de columnas (soportar mayúsculas y minúsculas)
+      const normalizedRow = {
+        name: row.NOMBRE || row.name,
+        sku: row.SKU || row.sku,
+        description: row.DESCRIPCION || row.description,
+        costPrice: row.PRECIO_COSTO || row.costPrice,
+        salePrice: row.PRECIO_VENTA || row.salePrice,
+        minStock: row.STOCK_MIN || row.minStock,
+        categoryId: row.CATEGORIA || row.categoryId,
+        unitId: row.UNIDAD || row.unitId,
+      };
+
       try {
-        if (!row.name || !row.sku) {
+        if (!normalizedRow.name || !normalizedRow.sku) {
           results.errors.push({
             row: rowNumber,
-            error: 'Campos requeridos: name, sku',
+            error: 'Campos requeridos: NOMBRE, SKU',
             data: row,
           });
           continue;
         }
 
-        if (!row.unitId) {
+        if (!normalizedRow.unitId) {
           results.errors.push({
             row: rowNumber,
-            error: 'El campo unitId es obligatorio. Debe especificar la unidad del producto (pieza, metro, litro, etc.)',
+            error: 'El campo UNIDAD es obligatorio. Debe especificar la unidad del producto (pieza, metro, litro, etc.)',
             data: row,
           });
           continue;
         }
 
         const existing = await prisma.product.findUnique({
-          where: { sku: row.sku },
+          where: { sku: normalizedRow.sku },
         });
 
         if (existing) {
           results.errors.push({
             row: rowNumber,
-            error: `Producto con SKU "${row.sku}" ya existe`,
+            error: `Producto con SKU "${normalizedRow.sku}" ya existe`,
             data: row,
           });
           continue;
         }
 
         const productData = {
-          name: row.name,
-          sku: row.sku,
-          description: row.description || null,
-          costPrice: row.costPrice ? parseFloat(row.costPrice) : null,
-          salePrice: row.salePrice ? parseFloat(row.salePrice) : null,
-          minStock: row.minStock ? parseInt(row.minStock) : null,
-          unitId: BigInt(row.unitId),
-          ...(row.categoryId && { categoryId: BigInt(row.categoryId) }),
+          name: normalizedRow.name,
+          sku: normalizedRow.sku,
+          description: normalizedRow.description || null,
+          costPrice: normalizedRow.costPrice ? parseFloat(normalizedRow.costPrice) : null,
+          salePrice: normalizedRow.salePrice ? parseFloat(normalizedRow.salePrice) : null,
+          minStock: normalizedRow.minStock ? parseInt(normalizedRow.minStock) : null,
+          unitId: BigInt(normalizedRow.unitId),
+          ...(normalizedRow.categoryId && { categoryId: BigInt(normalizedRow.categoryId) }),
         };
 
         const product = await prisma.product.create({
@@ -228,74 +240,131 @@ async function updateStockFromExcel(filePath) {
 }
 
 function generateProductsTemplate() {
-  const template = [
-    {
-      name: 'Cable UTP Cat6',
-      sku: 'CAB-UTP-CAT6',
-      description: 'Cable de red categoría 6',
-      costPrice: 5000,
-      salePrice: 8000,
-      minStock: 50,
-      categoryId: 1,
-      unitId: 1,
-    },
-    {
-      name: 'Switch 24 puertos',
-      sku: 'SW-24P',
-      description: 'Switch Gigabit 24 puertos',
-      costPrice: 150000,
-      salePrice: 200000,
-      minStock: 5,
-      categoryId: 1,
-      unitId: 2,
-    },
-  ];
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet([]);
 
-  const worksheet = XLSX.utils.json_to_sheet(template);
-  
-  // Configurar anchos de columna
-  worksheet['!cols'] = [
-    { wch: 30 }, // name
-    { wch: 20 }, // sku
-    { wch: 40 }, // description
-    { wch: 15 }, // costPrice
-    { wch: 15 }, // salePrice
-    { wch: 12 }, // minStock
-    { wch: 12 }, // categoryId
-    { wch: 10 }, // unitId
-  ];
+  // Título principal (fila 1)
+  XLSX.utils.sheet_add_aoa(worksheet, [
+    ['LISTA CONSOLIDADA DE PRODUCTOS PARA IMPORTACIÓN']
+  ], { origin: 'A1' });
 
-  // Estilo para encabezados
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '4472C4' } },
+  // Merge del título
+  worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+
+  // Estilo del título
+  worksheet['A1'].s = {
+    font: { bold: true, sz: 14 },
     alignment: { horizontal: 'center', vertical: 'center' },
+    fill: { fgColor: { rgb: 'E7E6E6' } },
+    border: {
+      top: { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: '000000' } },
+      right: { style: 'thin', color: { rgb: '000000' } }
+    }
   };
 
-  // Aplicar estilo a encabezados (fila 1)
-  const headers = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
-  headers.forEach(cell => {
-    if (worksheet[cell]) {
-      worksheet[cell].s = headerStyle;
+  // Encabezados (fila 3)
+  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CATEGORIA', 'UNIDAD'];
+  XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A3' });
+
+  // Estilo para encabezados con bordes
+  const headerStyle = {
+    font: { bold: true, color: { rgb: '0000FF' } },
+    fill: { fgColor: { rgb: 'FFFFFF' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: {
+      top: { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: '000000' } },
+      right: { style: 'thin', color: { rgb: '000000' } }
     }
+  };
+
+  // Aplicar estilo a encabezados
+  ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'G3', 'H3'].forEach(cell => {
+    if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
+    worksheet[cell].s = headerStyle;
   });
 
-  // Agregar nota explicativa
-  XLSX.utils.sheet_add_aoa(worksheet, [
-    [''],
-    ['INSTRUCCIONES:'],
-    ['- name: Nombre del producto (obligatorio)'],
-    ['- sku: Código único del producto (obligatorio)'],
-    ['- description: Descripción detallada'],
-    ['- costPrice: Precio de costo en BOB'],
-    ['- salePrice: Precio de venta en BOB'],
-    ['- minStock: Stock mínimo para alertas'],
-    ['- categoryId: ID de la categoría (consultar con /api/categories)'],
-    ['- unitId: ID de la unidad (1=Pieza, 2=Caja, 3=Metro, etc.)'],
-  ], { origin: 'A' + (template.length + 3) });
+  // Datos de ejemplo con bordes
+  const exampleData = [
+    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 5000, 8000, 50, 1, 1],
+    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 150000, 200000, 5, 1, 2],
+    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 80000, 120000, 10, 1, 1]
+  ];
 
-  const workbook = XLSX.utils.book_new();
+  XLSX.utils.sheet_add_aoa(worksheet, exampleData, { origin: 'A4' });
+
+  // Estilo para celdas de datos con bordes
+  const dataStyle = {
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border: {
+      top: { style: 'thin', color: { rgb: 'D3D3D3' } },
+      bottom: { style: 'thin', color: { rgb: 'D3D3D3' } },
+      left: { style: 'thin', color: { rgb: 'D3D3D3' } },
+      right: { style: 'thin', color: { rgb: 'D3D3D3' } }
+    }
+  };
+
+  // Aplicar bordes a las celdas de datos
+  for (let row = 4; row <= 6; row++) {
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+      const cell = col + row;
+      if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
+      worksheet[cell].s = dataStyle;
+    });
+  }
+
+  // Configurar anchos de columna
+  worksheet['!cols'] = [
+    { wch: 25 }, // NOMBRE
+    { wch: 18 }, // SKU
+    { wch: 35 }, // DESCRIPCION
+    { wch: 15 }, // PRECIO_COSTO
+    { wch: 15 }, // PRECIO_VENTA
+    { wch: 12 }, // STOCK_MIN
+    { wch: 12 }, // CATEGORIA
+    { wch: 12 }, // UNIDAD
+  ];
+
+  // Configurar altura de filas
+  worksheet['!rows'] = [
+    { hpt: 25 }, // Título
+    { hpt: 15 }, // Espacio
+    { hpt: 30 }, // Encabezados
+  ];
+
+  // Habilitar autofiltro en los encabezados
+  worksheet['!autofilter'] = { ref: 'A3:H3' };
+
+  // Agregar instrucciones en una hoja separada
+  const instructionsSheet = XLSX.utils.aoa_to_sheet([
+    ['INSTRUCCIONES PARA IMPORTAR PRODUCTOS'],
+    [''],
+    ['CAMPOS OBLIGATORIOS:'],
+    ['• NOMBRE: Nombre del producto'],
+    ['• SKU: Código único del producto (no puede repetirse)'],
+    [''],
+    ['CAMPOS OPCIONALES:'],
+    ['• DESCRIPCION: Descripción detallada del producto'],
+    ['• PRECIO_COSTO: Precio de costo en BOB (sin decimales)'],
+    ['• PRECIO_VENTA: Precio de venta en BOB (sin decimales)'],
+    ['• STOCK_MIN: Stock mínimo para alertas (número entero)'],
+    ['• CATEGORIA: ID de la categoría (consultar con /api/categories)'],
+    ['• UNIDAD: ID de la unidad (1=Pieza, 2=Caja, 3=Metro, 4=Litro, 5=Kilogramo, etc.)'],
+    [''],
+    ['NOTAS IMPORTANTES:'],
+    ['• No modifique los nombres de los encabezados'],
+    ['• Puede agregar tantas filas como productos necesite'],
+    ['• Los campos vacíos se llenarán con valores por defecto'],
+    ['• Guarde el archivo en formato .xlsx antes de importar'],
+  ]);
+
+  instructionsSheet['!cols'] = [{ wch: 80 }];
+
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+  XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instrucciones');
 
   return workbook;
 }
