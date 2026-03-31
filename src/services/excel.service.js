@@ -252,6 +252,48 @@ function generateProductsTemplate() {
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(template);
+  
+  // Configurar anchos de columna
+  worksheet['!cols'] = [
+    { wch: 30 }, // name
+    { wch: 20 }, // sku
+    { wch: 40 }, // description
+    { wch: 15 }, // costPrice
+    { wch: 15 }, // salePrice
+    { wch: 12 }, // minStock
+    { wch: 12 }, // categoryId
+    { wch: 10 }, // unitId
+  ];
+
+  // Estilo para encabezados
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '4472C4' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+  };
+
+  // Aplicar estilo a encabezados (fila 1)
+  const headers = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
+  headers.forEach(cell => {
+    if (worksheet[cell]) {
+      worksheet[cell].s = headerStyle;
+    }
+  });
+
+  // Agregar nota explicativa
+  XLSX.utils.sheet_add_aoa(worksheet, [
+    [''],
+    ['INSTRUCCIONES:'],
+    ['- name: Nombre del producto (obligatorio)'],
+    ['- sku: Código único del producto (obligatorio)'],
+    ['- description: Descripción detallada'],
+    ['- costPrice: Precio de costo en BOB'],
+    ['- salePrice: Precio de venta en BOB'],
+    ['- minStock: Stock mínimo para alertas'],
+    ['- categoryId: ID de la categoría (consultar con /api/categories)'],
+    ['- unitId: ID de la unidad (1=Pieza, 2=Caja, 3=Metro, etc.)'],
+  ], { origin: 'A' + (template.length + 3) });
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
 
@@ -283,6 +325,48 @@ function generateStockTemplate() {
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(template);
+  
+  // Configurar anchos de columna
+  worksheet['!cols'] = [
+    { wch: 20 }, // sku
+    { wch: 12 }, // productId
+    { wch: 15 }, // warehouseId
+    { wch: 12 }, // quantity
+    { wch: 12 }, // type
+    { wch: 15 }, // reason
+    { wch: 40 }, // notes
+    { wch: 12 }, // userId
+  ];
+
+  // Estilo para encabezados
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '70AD47' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+  };
+
+  // Aplicar estilo a encabezados (fila 1)
+  const headers = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
+  headers.forEach(cell => {
+    if (worksheet[cell]) {
+      worksheet[cell].s = headerStyle;
+    }
+  });
+
+  // Agregar nota explicativa
+  XLSX.utils.sheet_add_aoa(worksheet, [
+    [''],
+    ['INSTRUCCIONES:'],
+    ['- sku: Código del producto (obligatorio si no se usa productId)'],
+    ['- productId: ID del producto (dejar vacío si se usa sku)'],
+    ['- warehouseId: ID del almacén (consultar con /api/warehouses)'],
+    ['- quantity: Cantidad a ingresar/egresar'],
+    ['- type: INGRESO o EGRESO'],
+    ['- reason: COMPRA, VENTA, AJUSTE, DEVOLUCION, TRASLADO, OTRO'],
+    ['- notes: Notas adicionales'],
+    ['- userId: Dejar vacío (se asigna automáticamente)'],
+  ], { origin: 'A' + (template.length + 3) });
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock');
 
