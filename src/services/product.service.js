@@ -120,22 +120,30 @@ async function createProduct(data) {
 }
 
 async function updateProduct(id, data) {
+  // Destructure all known fields explicitly — categoryId must never be passed
+  // directly to Prisma as a scalar field; it must go through the relation syntax.
   const { name, description, categoryId, unitId, costPrice, salePrice, minStock } = data;
 
   const updateData = {
-    ...(name && { name }),
+    ...(name !== undefined && { name }),
     ...(description !== undefined && { description }),
     ...(costPrice !== undefined && { costPrice }),
     ...(salePrice !== undefined && { salePrice }),
     ...(minStock !== undefined && { minStock }),
   };
 
+  // Ensure categoryId is never present as a direct scalar field on updateData.
+  // Prisma requires relationship updates to use connect/disconnect syntax.
+  delete updateData.categoryId;
+
   // Actualizar relaciones usando connect
   if (categoryId !== undefined) {
-    if (categoryId === null) {
+    // Treat the string "null" (from form submissions) the same as actual null
+    const resolvedCategoryId = categoryId === 'null' ? null : categoryId;
+    if (resolvedCategoryId === null) {
       updateData.category = { disconnect: true };
     } else {
-      updateData.category = { connect: { id: BigInt(categoryId) } };
+      updateData.category = { connect: { id: BigInt(resolvedCategoryId) } };
     }
   }
 
