@@ -108,7 +108,7 @@ async function createProduct(data) {
       unitId: BigInt(unitId),
       costPrice,
       salePrice,
-      minStock: minStock || 0,
+      minStockGlobal: minStock || 0,
     },
     include: {
       category: true,
@@ -127,7 +127,7 @@ async function updateProduct(id, data) {
     ...(description !== undefined && { description }),
     ...(costPrice !== undefined && { costPrice }),
     ...(salePrice !== undefined && { salePrice }),
-    ...(minStock !== undefined && { minStock }),
+    ...(minStock !== undefined && { minStockGlobal: minStock }),
   };
 
   // Actualizar relaciones usando connect
