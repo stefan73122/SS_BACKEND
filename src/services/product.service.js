@@ -35,8 +35,17 @@ async function getAllProducts({ page = 1, limit = 10, search = '', categoryId = 
     prisma.product.count({ where }),
   ]);
 
+  // Transformar productos para compatibilidad con frontend
+  const transformedProducts = products.map(product => ({
+    ...product,
+    id: product.id.toString(),
+    categoryId: product.categoryId ? product.categoryId.toString() : null,
+    unitId: product.unitId.toString(),
+    minStock: product.minStockGlobal, // Mapear minStockGlobal a minStock
+  }));
+
   return {
-    products,
+    products: transformedProducts,
     pagination: {
       total,
       page: pageNum,
@@ -81,7 +90,14 @@ async function getProductById(id) {
     throw new Error('Producto no encontrado');
   }
 
-  return product;
+  // Transformar para compatibilidad con frontend
+  return {
+    ...product,
+    id: product.id.toString(),
+    categoryId: product.categoryId ? product.categoryId.toString() : null,
+    unitId: product.unitId.toString(),
+    minStock: product.minStockGlobal, // Mapear minStockGlobal a minStock
+  };
 }
 
 async function createProduct(data) {
@@ -152,7 +168,14 @@ async function updateProduct(id, data) {
     },
   });
 
-  return product;
+  // Transformar para compatibilidad con frontend
+  return {
+    ...product,
+    id: product.id.toString(),
+    categoryId: product.categoryId ? product.categoryId.toString() : null,
+    unitId: product.unitId.toString(),
+    minStock: product.minStockGlobal, // Mapear minStockGlobal a minStock
+  };
 }
 
 async function deleteProduct(id) {
