@@ -1,4 +1,5 @@
 const prisma = require('../prisma/client');
+const { createLowStockNotification } = require('./notification.service');
 
 async function getAllWarehouses() {
   const warehouses = await prisma.warehouse.findMany({
@@ -84,7 +85,7 @@ async function createMovement(data) {
       },
     });
 
-    await tx.warehouseStock.upsert({
+    const updatedStock = await tx.warehouseStock.upsert({
       where: {
         warehouseId_productId: {
           warehouseId: BigInt(warehouseId),
@@ -103,10 +104,34 @@ async function createMovement(data) {
       },
     });
 
-    return mov;
+    return { mov, updatedStock };
   });
 
-  return movement;
+  // Verificar si el stock quedó bajo el mínimo
+  const totalStock = await prisma.warehouseStock.aggregate({
+    where: { productId: BigInt(productId) },
+    _sum: { quantity: true },
+  });
+
+  const currentStock = totalStock._sum.quantity || 0;
+  const minStock = product.minStockGlobal || 0;
+
+  // Si el stock está bajo el mínimo, crear notificación
+  if (currentStock <= minStock && currentStock > 0) {
+    try {
+      await createLowStockNotification(
+        productId,
+        product.name,
+        Number(currentStock),
+        Number(minStock)
+      );
+    } catch (error) {
+      console.error('Error al crear notificación de stock bajo:', error);
+      // No fallar el movimiento si falla la notificación
+    }
+  }
+
+  return movement.mov;
 }
 
 async function getMovements({ page = 1, limit = 10, productId = null, warehouseId = null, type = null }) {

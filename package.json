@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "seed": "node scripts/seed-initial-data.js",
     "reset": "node scripts/reset-database.js",
-    "reset:seed": "npm run reset && npm run seed"
+    "reset:seed": "npm run reset && npm run seed",
+    "check-stock": "node scripts/check-low-stock.js"
   },
   "keywords": [],
   "author": "RCE",
