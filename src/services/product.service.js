@@ -122,17 +122,30 @@ async function createProduct(data) {
 async function updateProduct(id, data) {
   const { name, description, categoryId, unitId, costPrice, salePrice, minStock } = data;
 
+  const updateData = {
+    ...(name && { name }),
+    ...(description !== undefined && { description }),
+    ...(costPrice !== undefined && { costPrice }),
+    ...(salePrice !== undefined && { salePrice }),
+    ...(minStock !== undefined && { minStock }),
+  };
+
+  // Actualizar relaciones usando connect
+  if (categoryId !== undefined) {
+    if (categoryId === null) {
+      updateData.category = { disconnect: true };
+    } else {
+      updateData.category = { connect: { id: BigInt(categoryId) } };
+    }
+  }
+
+  if (unitId) {
+    updateData.unit = { connect: { id: BigInt(unitId) } };
+  }
+
   const product = await prisma.product.update({
     where: { id: BigInt(id) },
-    data: {
-      ...(name && { name }),
-      ...(description !== undefined && { description }),
-      ...(categoryId && { categoryId: BigInt(categoryId) }),
-      ...(unitId && { unitId: BigInt(unitId) }),
-      ...(costPrice !== undefined && { costPrice }),
-      ...(salePrice !== undefined && { salePrice }),
-      ...(minStock !== undefined && { minStock }),
-    },
+    data: updateData,
     include: {
       category: true,
       unit: true,
