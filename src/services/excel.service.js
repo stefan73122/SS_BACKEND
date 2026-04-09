@@ -28,6 +28,7 @@ async function importProductsFromExcel(filePath) {
         minStock: row.STOCK_MIN || row.minStock,
         categoryId: row.CATEGORIA || row.categoryId,
         unitId: row.UNIDAD || row.unitId,
+        unitName: row.UNIDAD || row.unitName || row.unitId, // Puede ser nombre o ID
       };
 
       try {
@@ -40,13 +41,40 @@ async function importProductsFromExcel(filePath) {
           continue;
         }
 
-        if (!normalizedRow.unitId) {
+        if (!normalizedRow.unitName) {
           results.errors.push({
             row: rowNumber,
-            error: 'El campo UNIDAD es obligatorio. Debe especificar la unidad del producto (pieza, metro, litro, etc.)',
+            error: 'El campo UNIDAD es obligatorio. Debe especificar la unidad del producto (Pieza, Caja, Metro, Litro, etc.)',
             data: row,
           });
           continue;
+        }
+
+        // Buscar unidad por nombre o ID
+        let unitId;
+        if (isNaN(normalizedRow.unitName)) {
+          // Es un nombre de unidad, buscar por nombre
+          const unit = await prisma.unit.findFirst({
+            where: {
+              name: {
+                equals: normalizedRow.unitName,
+                mode: 'insensitive',
+              },
+            },
+          });
+
+          if (!unit) {
+            results.errors.push({
+              row: rowNumber,
+              error: `Unidad "${normalizedRow.unitName}" no encontrada. Unidades válidas: Pieza, Caja, Metro, Litro, Kilogramo, etc.`,
+              data: row,
+            });
+            continue;
+          }
+          unitId = unit.id;
+        } else {
+          // Es un ID numérico
+          unitId = BigInt(normalizedRow.unitName);
         }
 
         const existing = await prisma.product.findUnique({
@@ -69,7 +97,7 @@ async function importProductsFromExcel(filePath) {
           costPrice: normalizedRow.costPrice ? parseFloat(normalizedRow.costPrice) : null,
           salePrice: normalizedRow.salePrice ? parseFloat(normalizedRow.salePrice) : null,
           minStock: normalizedRow.minStock ? parseInt(normalizedRow.minStock) : null,
-          unitId: BigInt(normalizedRow.unitId),
+          unitId: unitId,
           ...(normalizedRow.categoryId && { categoryId: BigInt(normalizedRow.categoryId) }),
         };
 
@@ -289,9 +317,9 @@ function generateProductsTemplate() {
 
   // Datos de ejemplo con bordes
   const exampleData = [
-    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 5000, 8000, 50, 1, 1],
-    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 150000, 200000, 5, 1, 2],
-    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 80000, 120000, 10, 1, 1]
+    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 5000, 8000, 50, 1, 'Pieza'],
+    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 150000, 200000, 5, 1, 'Caja'],
+    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 80000, 120000, 10, 1, 'Pieza']
   ];
 
   XLSX.utils.sheet_add_aoa(worksheet, exampleData, { origin: 'A4' });
@@ -352,7 +380,7 @@ function generateProductsTemplate() {
     ['• PRECIO_VENTA: Precio de venta en BOB (sin decimales)'],
     ['• STOCK_MIN: Stock mínimo para alertas (número entero)'],
     ['• CATEGORIA: ID de la categoría (consultar con /api/categories)'],
-    ['• UNIDAD: ID de la unidad (1=Pieza, 2=Caja, 3=Metro, 4=Litro, 5=Kilogramo, etc.)'],
+    ['• UNIDAD: Nombre de la unidad (Pieza, Caja, Metro, Litro, Kilogramo, etc.)'],
     [''],
     ['NOTAS IMPORTANTES:'],
     ['• No modifique los nombres de los encabezados'],

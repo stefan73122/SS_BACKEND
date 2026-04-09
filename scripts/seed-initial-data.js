@@ -108,6 +108,16 @@ async function seedInitialData() {
       { code: 'credits.view', description: 'Ver pagos a crédito', module: 'Créditos' },
       { code: 'credits.manage', description: 'Gestionar pagos a crédito', module: 'Créditos' },
       { code: 'credits.mark-paid', description: 'Marcar pagos como pagados', module: 'Créditos' },
+
+      // Punto de Venta (POS)
+      { code: 'pos.access', description: 'Acceder al punto de venta', module: 'Punto de Venta' },
+      { code: 'pos.create-sale', description: 'Crear ventas', module: 'Punto de Venta' },
+      { code: 'pos.view-sales', description: 'Ver historial de ventas', module: 'Punto de Venta' },
+      { code: 'pos.cancel-sale', description: 'Cancelar ventas', module: 'Punto de Venta' },
+      { code: 'pos.apply-discount', description: 'Aplicar descuentos', module: 'Punto de Venta' },
+      { code: 'pos.refund', description: 'Realizar devoluciones', module: 'Punto de Venta' },
+      { code: 'pos.close-cash', description: 'Cerrar caja', module: 'Punto de Venta' },
+      { code: 'pos.view-reports', description: 'Ver reportes de caja', module: 'Punto de Venta' },
     ];
 
     const createdPermissions = [];
