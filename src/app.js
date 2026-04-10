@@ -13,12 +13,24 @@ const app = express();
 
 // Configuración de CORS
 const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'https://ssbackend-production-133b.up.railway.app',
-    'https://smartservist.vercel.app'
-  ],
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origin (como Postman, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Lista de orígenes permitidos
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://ssbackend-production-133b.up.railway.app'
+    ];
+    
+    // Verificar si el origin está en la lista o es un subdominio de vercel.app
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
