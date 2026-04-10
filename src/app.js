@@ -16,7 +16,8 @@ const corsOptions = {
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://ssbackend-production-133b.up.railway.app'
+    'https://ssbackend-production-133b.up.railway.app',
+    'https://smartservist.vercel.app'
   ],
   credentials: true,
   optionsSuccessStatus: 200
