@@ -1,4 +1,5 @@
 const prisma = require('../prisma/client');
+const { montoALetras } = require('../utils/numberToWords');
 
 function normalizeQuote(quote) {
   if (!quote) return quote;
@@ -453,6 +454,17 @@ async function getQuoteReceipt(id) {
   if (!quote) throw new Error('Cotización no encontrada');
 
   const normalized = normalizeQuote(quote);
+  
+  // Calcular días de validez
+  let validityDays = null;
+  if (quote.validUntil && quote.createdAt) {
+    const diffTime = new Date(quote.validUntil) - new Date(quote.createdAt);
+    validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // Convertir total a letras
+  const grandTotal = parseFloat(quote.grandTotal);
+  const totalInWords = montoALetras(grandTotal, 'BOLIVIANOS');
 
   return {
     ...normalized,
@@ -460,6 +472,7 @@ async function getQuoteReceipt(id) {
       quoteNumber: quote.quoteNumber,
       issueDate: quote.issueDate,
       validUntil: quote.validUntil,
+      validityDays: validityDays,
       paymentType: quote.paymentType,
       status: quote.status,
       client: {
@@ -482,8 +495,10 @@ async function getQuoteReceipt(id) {
       subtotal: parseFloat(quote.subtotal),
       discountTotal: parseFloat(quote.discountTotal),
       taxTotal: parseFloat(quote.taxTotal),
-      grandTotal: parseFloat(quote.grandTotal),
+      grandTotal: grandTotal,
+      totalInWords: totalInWords,
       observations: quote.observations,
+      currency: 'BS',
     },
   };
 }
