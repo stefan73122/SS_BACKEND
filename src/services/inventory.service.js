@@ -41,7 +41,7 @@ async function getWarehouseById(id) {
 }
 
 async function createMovement(data) {
-  const { productId, warehouseId, type, reason, quantity, notes, referenceId } = data;
+  const { productId, warehouseId, type, reason, quantity, notes, referenceId, createdBy } = data;
 
   const product = await prisma.product.findUnique({
     where: { id: BigInt(productId) },
@@ -60,28 +60,42 @@ async function createMovement(data) {
     },
   });
 
-  let newQuantity = quantity;
+  let quantityChange = quantity;
   if (type === 'EGRESO') {
     if (!stock || stock.quantity < quantity) {
       throw new Error('Stock insuficiente para realizar el egreso');
     }
-    newQuantity = -quantity;
+    quantityChange = -quantity;
   }
 
   const movement = await prisma.$transaction(async (tx) => {
+    // Crear el movimiento con la estructura correcta del schema
     const mov = await tx.inventoryMovement.create({
       data: {
-        productId: BigInt(productId),
-        warehouseId: BigInt(warehouseId),
         type,
         reason,
-        quantity: newQuantity,
-        notes,
-        referenceId: referenceId ? BigInt(referenceId) : null,
+        warehouseFromId: type === 'EGRESO' ? BigInt(warehouseId) : null,
+        warehouseToId: type === 'INGRESO' ? BigInt(warehouseId) : null,
+        note: notes,
+        relatedId: referenceId ? BigInt(referenceId) : null,
+        createdBy: createdBy ? BigInt(createdBy) : BigInt(1),
+        items: {
+          create: {
+            productId: BigInt(productId),
+            quantity: Math.abs(quantity),
+            unitCost: product.cost || 0,
+            totalCost: (product.cost || 0) * Math.abs(quantity),
+          },
+        },
       },
       include: {
-        product: true,
-        warehouse: true,
+        warehouseFrom: true,
+        warehouseTo: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
 
@@ -94,13 +108,13 @@ async function createMovement(data) {
       },
       update: {
         quantity: {
-          increment: newQuantity,
+          increment: quantityChange,
         },
       },
       create: {
         productId: BigInt(productId),
         warehouseId: BigInt(warehouseId),
-        quantity: Math.max(0, newQuantity),
+        quantity: Math.max(0, quantityChange),
       },
     });
 

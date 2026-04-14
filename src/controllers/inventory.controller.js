@@ -22,7 +22,11 @@ async function getWarehouseById(req, res) {
 
 async function createMovement(req, res) {
   try {
-    const movement = await inventoryService.createMovement(req.body);
+    const userId = req.user?.userId || req.user?.id;
+    const movement = await inventoryService.createMovement({
+      ...req.body,
+      createdBy: userId,
+    });
     res.status(201).json(serializeBigInt(movement));
   } catch (error) {
     res.status(400).json({ error: error.message });
