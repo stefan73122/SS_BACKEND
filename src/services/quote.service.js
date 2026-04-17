@@ -114,7 +114,8 @@ async function createQuote(data) {
   const itemsData = [];
 
   for (const item of items) {
-    const itemTotal = item.quantity * item.unitPrice;
+    const itemDiscount = item.discount || 0;
+    const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscount / 100);
     subtotal += itemTotal;
 
     itemsData.push({
@@ -123,6 +124,7 @@ async function createQuote(data) {
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      discount: itemDiscount,
       lineTotal: itemTotal,
     });
   }
@@ -196,7 +198,8 @@ async function updateQuote(id, data) {
     const itemsData = [];
 
     for (const item of items) {
-      const itemTotal = item.quantity * item.unitPrice;
+      const itemDiscount = item.discount || 0;
+      const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscount / 100);
       subtotal += itemTotal;
 
       itemsData.push({
@@ -205,6 +208,7 @@ async function updateQuote(id, data) {
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discount: itemDiscount,
         lineTotal: itemTotal,
       });
     }
