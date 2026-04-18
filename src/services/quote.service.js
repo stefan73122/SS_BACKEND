@@ -114,8 +114,20 @@ async function createQuote(data) {
   const itemsData = [];
 
   for (const item of items) {
-    const itemDiscount = item.discount || 0;
-    const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscount / 100);
+    let itemDiscountPercent = 0;
+    
+    if (item.discount && item.discount > 0) {
+      // Si el descuento es mayor que 100, asumimos que es un monto en Bs, no un porcentaje
+      // Ejemplo: producto de 63.76 Bs con descuento de 5.9 Bs = (5.9 / 63.76) * 100 = 9.25%
+      if (item.discount > 100 || (item.discount > 1 && item.discount < item.unitPrice)) {
+        itemDiscountPercent = (item.discount / item.unitPrice) * 100;
+      } else {
+        // Si es menor o igual a 100, asumimos que ya es un porcentaje
+        itemDiscountPercent = item.discount;
+      }
+    }
+    
+    const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscountPercent / 100);
     subtotal += itemTotal;
 
     itemsData.push({
@@ -124,7 +136,7 @@ async function createQuote(data) {
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
-      discount: itemDiscount,
+      discount: itemDiscountPercent,
       lineTotal: itemTotal,
     });
   }
@@ -198,8 +210,20 @@ async function updateQuote(id, data) {
     const itemsData = [];
 
     for (const item of items) {
-      const itemDiscount = item.discount || 0;
-      const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscount / 100);
+      let itemDiscountPercent = 0;
+      
+      if (item.discount && item.discount > 0) {
+        // Si el descuento es mayor que 100, asumimos que es un monto en Bs, no un porcentaje
+        // Ejemplo: producto de 63.76 Bs con descuento de 5.9 Bs = (5.9 / 63.76) * 100 = 9.25%
+        if (item.discount > 100 || (item.discount > 1 && item.discount < item.unitPrice)) {
+          itemDiscountPercent = (item.discount / item.unitPrice) * 100;
+        } else {
+          // Si es menor o igual a 100, asumimos que ya es un porcentaje
+          itemDiscountPercent = item.discount;
+        }
+      }
+      
+      const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscountPercent / 100);
       subtotal += itemTotal;
 
       itemsData.push({
@@ -208,7 +232,7 @@ async function updateQuote(id, data) {
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        discount: itemDiscount,
+        discount: itemDiscountPercent,
         lineTotal: itemTotal,
       });
     }
