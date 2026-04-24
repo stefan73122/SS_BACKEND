@@ -492,10 +492,12 @@ async function getQuoteReceipt(id) {
 
   const normalized = normalizeQuote(quote);
   
-  // Calcular días de validez
+  // Calcular días de validez (contando desde el día siguiente de la creación)
   let validityDays = null;
   if (quote.validUntil && quote.createdAt) {
-    const diffTime = new Date(quote.validUntil) - new Date(quote.createdAt);
+    const createdAtPlusOneDay = new Date(quote.createdAt);
+    createdAtPlusOneDay.setDate(createdAtPlusOneDay.getDate() + 1);
+    const diffTime = new Date(quote.validUntil) - createdAtPlusOneDay;
     validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
@@ -527,10 +529,12 @@ async function getQuoteReceipt(id) {
         sku: item.product?.sku || '',
         quantity: parseFloat(item.quantity),
         unitPrice: parseFloat(item.unitPrice),
+        discount: parseFloat(item.discount || 0),
         lineTotal: parseFloat(item.lineTotal),
       })),
       subtotal: parseFloat(quote.subtotal),
       discountTotal: parseFloat(quote.discountTotal),
+      hasGlobalDiscount: parseFloat(quote.discountTotal) > 0,
       taxTotal: parseFloat(quote.taxTotal),
       grandTotal: grandTotal,
       totalInWords: totalInWords,
