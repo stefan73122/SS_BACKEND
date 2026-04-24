@@ -196,6 +196,12 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         const precioCompra = row.PRECIO_COSTO || row['\tPRECIO_COSTO'] || row['PRECIO DE COMPRA'] || row['PRECIO_DE_COMPRA'] || row.PRECIO_DE_COMPRA;
         const cantidad = row.CANTIDAD || row.cantidad || row.STOCK || row.stock;
         const precioVenta = row.PRECIO_VENTA || row['\tPRECIO_VENTA'] || row['PRECIO DE VENTA'] || row['PRECIO_DE_VENTA'] || row.PRECIO_DE_VENTA;
+        const stockMinimo =
+          row.STOCK_MIN ?? row.stock_min ??
+          row.STOCK_MINIMO ?? row.stock_minimo ??
+          row['STOCK MIN'] ?? row['STOCK MINIMO'] ??
+          row['STOCK MÍNIMO'] ?? row['STOCK_MÍNIMO'] ??
+          row.MIN_STOCK ?? row.min_stock ?? null;
 
         // Debug de la primera fila
         if (i === 0) {
@@ -296,6 +302,9 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           brand: marca || null,
           origin: procedencia || null,
           manufacturerCode: codigoFabricante || null,
+          ...(stockMinimo !== null && stockMinimo !== undefined && !isNaN(parseFloat(stockMinimo)) && {
+            minStockGlobal: parseFloat(stockMinimo),
+          }),
           ...(categoryId && { categoryId }),
           ...(unitId && { unitId }),
           ...(supplierId && { supplierId }),

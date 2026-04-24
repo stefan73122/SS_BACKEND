@@ -63,11 +63,16 @@ async function getInventory(req, res) {
 async function getInventoryByUserWarehouse(req, res) {
   try {
     const userId = req.user?.userId || req.user?.id;
-    const { page, limit, search, categoryId, lowStockOnly } = req.query;
+    const userRoles = req.user?.roles || [];
+    const { page, limit, search, categoryId, lowStockOnly, warehouseId: queryWarehouseId } = req.query;
 
     if (!userId) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
+
+    const isAdmin = userRoles.some(
+      r => typeof r === 'string' && r.trim().toLowerCase() === 'administrador'
+    );
 
     // Obtener el warehouseId del usuario
     const prisma = require('../prisma/client');
@@ -76,26 +81,37 @@ async function getInventoryByUserWarehouse(req, res) {
       select: { warehouseId: true },
     });
 
-    if (!user || !user.warehouseId) {
-      return res.status(400).json({ 
+    // Determinar el almacén efectivo:
+    //  - Admin: puede ver todos (null) o filtrar por queryWarehouseId
+    //  - Usuario normal: debe tener almacén asignado
+    let effectiveWarehouseId = null;
+    if (isAdmin) {
+      effectiveWarehouseId = queryWarehouseId || null; // null = todos los almacenes
+    } else if (user && user.warehouseId) {
+      effectiveWarehouseId = user.warehouseId.toString();
+    } else {
+      return res.status(400).json({
         error: 'El usuario no tiene un almacén asignado',
-        code: 'NO_WAREHOUSE_ASSIGNED'
+        code: 'NO_WAREHOUSE_ASSIGNED',
       });
     }
 
-    const result = await inventoryService.getInventory({ 
-      page, 
-      limit, 
-      search, 
-      categoryId, 
-      warehouseId: user.warehouseId.toString(),
-      lowStockOnly: lowStockOnly === 'true'
+    const result = await inventoryService.getInventory({
+      page,
+      limit,
+      search,
+      categoryId,
+      warehouseId: effectiveWarehouseId,
+      lowStockOnly: lowStockOnly === 'true',
     });
 
     res.json(serializeBigInt({
       ...result,
-      warehouseId: user.warehouseId.toString(),
-      message: 'Productos filtrados por el almacén asignado al usuario'
+      warehouseId: effectiveWarehouseId,
+      isAdminView: isAdmin && !queryWarehouseId,
+      message: isAdmin && !queryWarehouseId
+        ? 'Vista de administrador: inventario de todos los almacenes'
+        : 'Productos filtrados por almacén',
     }));
   } catch (error) {
     res.status(500).json({ error: error.message });

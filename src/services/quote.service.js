@@ -269,18 +269,27 @@ async function updateQuote(id, data) {
       throw new Error('Se requiere un usuario para registrar el movimiento de inventario');
     }
 
-    // Obtener el almacén asignado al usuario
+    // Obtener el almacén: prioridad → param → usuario → admin requiere selección
     let userWarehouseId = warehouseId;
     
     if (!userWarehouseId) {
       const user = await prisma.user.findUnique({
         where: { id: BigInt(userId) },
-        select: { warehouseId: true },
+        select: {
+          warehouseId: true,
+          userRoles: { include: { role: true } },
+        },
       });
+
+      const isAdmin = user?.userRoles?.some(
+        ur => ur.role.name.trim().toLowerCase() === 'administrador'
+      );
       
       if (user && user.warehouseId) {
         userWarehouseId = user.warehouseId.toString();
         console.log(`[Quote Service] Usando almacén asignado al usuario: ${userWarehouseId}`);
+      } else if (isAdmin) {
+        throw new Error('Como administrador, debes seleccionar el almacén desde el cual se descontará el inventario (envía warehouseId en la petición).');
       } else {
         throw new Error('El usuario no tiene un almacén asignado. Contacte al administrador.');
       }
