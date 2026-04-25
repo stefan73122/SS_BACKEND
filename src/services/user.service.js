@@ -1,5 +1,5 @@
 const prisma = require('../prisma/client');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function getAllUsers({ page = 1, limit = 10, search = '' }) {
   const pageNum = parseInt(page) || 1;

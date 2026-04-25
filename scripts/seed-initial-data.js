@@ -1,6 +1,6 @@
 require('dotenv').config();
 const prisma = require('../src/prisma/client');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function seedInitialData() {
   try {
