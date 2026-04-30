@@ -9,7 +9,7 @@ async function getAllSuppliers({ page = 1, limit = 10, search = '' }) {
     ? {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
-          { rut: { contains: search, mode: 'insensitive' } },
+          { documentNum: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } },
         ],
       }
@@ -49,24 +49,27 @@ async function getSupplierById(id) {
 }
 
 async function createSupplier(data) {
-  const { name, rut, email, phone, address, contactPerson } = data;
+  const { name, documentType, documentNum, email, phone, address, city, country } = data;
 
-  const existingSupplier = await prisma.supplier.findUnique({
-    where: { rut },
-  });
-
-  if (existingSupplier) {
-    throw new Error('Ya existe un proveedor con ese RUT');
+  if (documentNum) {
+    const existingSupplier = await prisma.supplier.findFirst({
+      where: { documentNum },
+    });
+    if (existingSupplier) {
+      throw new Error('Ya existe un proveedor con ese número de documento');
+    }
   }
 
   const supplier = await prisma.supplier.create({
     data: {
       name,
-      rut,
-      email,
-      phone,
-      address,
-      contactPerson,
+      ...(documentType && { documentType }),
+      ...(documentNum && { documentNum }),
+      ...(email && { email }),
+      ...(phone && { phone }),
+      ...(address && { address }),
+      ...(city && { city }),
+      ...(country && { country }),
     },
   });
 
@@ -74,16 +77,19 @@ async function createSupplier(data) {
 }
 
 async function updateSupplier(id, data) {
-  const { name, email, phone, address, contactPerson } = data;
+  const { name, documentType, documentNum, email, phone, address, city, country } = data;
 
   const supplier = await prisma.supplier.update({
     where: { id: BigInt(id) },
     data: {
       ...(name && { name }),
-      ...(email && { email }),
-      ...(phone && { phone }),
-      ...(address && { address }),
-      ...(contactPerson && { contactPerson }),
+      ...(documentType !== undefined && { documentType }),
+      ...(documentNum !== undefined && { documentNum }),
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone }),
+      ...(address !== undefined && { address }),
+      ...(city !== undefined && { city }),
+      ...(country !== undefined && { country }),
     },
   });
 
