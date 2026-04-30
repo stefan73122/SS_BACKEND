@@ -49,11 +49,13 @@ async function getSupplierById(id) {
 }
 
 async function createSupplier(data) {
-  const { name, documentType, documentNum, email, phone, address, city, country } = data;
+  const { name, documentType, documentNum, rut, nit, ci, email, phone, address, city, country, contactPerson } = data;
+  const resolvedDocumentNum = documentNum || nit || rut || ci || null;
+  const resolvedDocumentType = documentType || (nit ? 'NIT' : rut ? 'NIT' : ci ? 'CI' : null);
 
-  if (documentNum) {
+  if (resolvedDocumentNum) {
     const existingSupplier = await prisma.supplier.findFirst({
-      where: { documentNum },
+      where: { documentNum: resolvedDocumentNum },
     });
     if (existingSupplier) {
       throw new Error('Ya existe un proveedor con ese número de documento');
@@ -63,13 +65,14 @@ async function createSupplier(data) {
   const supplier = await prisma.supplier.create({
     data: {
       name,
-      ...(documentType && { documentType }),
-      ...(documentNum && { documentNum }),
+      ...(resolvedDocumentType && { documentType: resolvedDocumentType }),
+      ...(resolvedDocumentNum && { documentNum: resolvedDocumentNum }),
       ...(email && { email }),
       ...(phone && { phone }),
       ...(address && { address }),
       ...(city && { city }),
       ...(country && { country }),
+      ...(contactPerson && { contactPerson }),
     },
   });
 
@@ -77,19 +80,22 @@ async function createSupplier(data) {
 }
 
 async function updateSupplier(id, data) {
-  const { name, documentType, documentNum, email, phone, address, city, country } = data;
+  const { name, documentType, documentNum, rut, nit, ci, email, phone, address, city, country, contactPerson } = data;
+  const resolvedDocumentNum = documentNum !== undefined ? documentNum : (nit || rut || ci);
+  const resolvedDocumentType = documentType !== undefined ? documentType : (nit ? 'NIT' : rut ? 'NIT' : ci ? 'CI' : undefined);
 
   const supplier = await prisma.supplier.update({
     where: { id: BigInt(id) },
     data: {
       ...(name && { name }),
-      ...(documentType !== undefined && { documentType }),
-      ...(documentNum !== undefined && { documentNum }),
+      ...(resolvedDocumentType !== undefined && { documentType: resolvedDocumentType }),
+      ...(resolvedDocumentNum !== undefined && { documentNum: resolvedDocumentNum }),
       ...(email !== undefined && { email }),
       ...(phone !== undefined && { phone }),
       ...(address !== undefined && { address }),
       ...(city !== undefined && { city }),
       ...(country !== undefined && { country }),
+      ...(contactPerson !== undefined && { contactPerson }),
     },
   });
 
