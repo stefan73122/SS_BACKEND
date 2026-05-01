@@ -101,7 +101,10 @@ async function getProductById(id) {
 }
 
 async function createProduct(data) {
-  const { name, sku, description, categoryId, unitId, costPrice, salePrice, minStock } = data;
+  const { name, sku, description, categoryId, unitId, costPrice, salePrice, minStock, supplierId } = data;
+  const brand = data.brand || data.marca || undefined;
+  const origin = data.origin || data.origen || undefined;
+  const manufacturerCode = data.manufacturerCode || data.manufacturer_code || data.codigoFabricante || data.codigo_fabricante || undefined;
 
   if (!unitId) {
     throw new Error('La unidad es obligatoria para crear un producto');
@@ -125,6 +128,10 @@ async function createProduct(data) {
       costPrice,
       salePrice,
       minStockGlobal: minStock || 0,
+      ...(brand !== undefined && { brand }),
+      ...(origin !== undefined && { origin }),
+      ...(manufacturerCode !== undefined && { manufacturerCode }),
+      ...(supplierId ? { supplierId: BigInt(supplierId) } : {}),
     },
     include: {
       category: true,
@@ -136,7 +143,13 @@ async function createProduct(data) {
 }
 
 async function updateProduct(id, data) {
-  const { name, description, categoryId, unitId, costPrice, salePrice, minStock } = data;
+  const { name, description, categoryId, unitId, costPrice, salePrice, minStock, supplierId } = data;
+  const brand = data.brand !== undefined ? data.brand : data.marca;
+  const origin = data.origin !== undefined ? data.origin : data.origen;
+  const manufacturerCode = data.manufacturerCode !== undefined ? data.manufacturerCode
+    : data.manufacturer_code !== undefined ? data.manufacturer_code
+    : data.codigoFabricante !== undefined ? data.codigoFabricante
+    : data.codigo_fabricante;
 
   const updateData = {
     ...(name && { name }),
@@ -144,6 +157,10 @@ async function updateProduct(id, data) {
     ...(costPrice !== undefined && { costPrice }),
     ...(salePrice !== undefined && { salePrice }),
     ...(minStock !== undefined && { minStockGlobal: minStock }),
+    ...(brand !== undefined && { brand }),
+    ...(origin !== undefined && { origin }),
+    ...(manufacturerCode !== undefined && { manufacturerCode }),
+    ...(supplierId !== undefined && { supplierId: supplierId ? BigInt(supplierId) : null }),
   };
 
   // Actualizar relaciones usando connect
