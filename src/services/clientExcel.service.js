@@ -386,16 +386,18 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         }
 
         if (!resolvedWarehouseId && almacen) {
-          const warehouseByName = await prisma.warehouse.findFirst({
+          let warehouseByName = await prisma.warehouse.findFirst({
             where: { name: { equals: almacen.trim(), mode: 'insensitive' } },
           });
-          if (warehouseByName) {
-            resolvedWarehouseId = warehouseByName.id.toString();
-            resolvedWarehouseName = warehouseByName.name;
-            console.log(`[Excel Import] Almacén resuelto por nombre "${almacen}": ID ${resolvedWarehouseId}`);
-          } else {
-            console.warn(`[Excel Import] Almacén "${almacen}" no encontrado en BD`);
+          if (!warehouseByName) {
+            console.log(`[Excel Import] Almacén "${almacen}" no existe, creándolo automáticamente`);
+            warehouseByName = await prisma.warehouse.create({
+              data: { name: almacen.trim() },
+            });
           }
+          resolvedWarehouseId = warehouseByName.id.toString();
+          resolvedWarehouseName = warehouseByName.name;
+          console.log(`[Excel Import] Almacén "${almacen}": ID ${resolvedWarehouseId}`);
         }
 
         let stockSaved = false;
