@@ -12,22 +12,27 @@ const runMigrations = require('./migrate');
 const app = express();
 
 // Configuración de CORS
+const baseAllowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://ssbackend-production-133b.up.railway.app',
+];
+
+// Orígenes adicionales desde variable de entorno CORS_ORIGINS (separados por coma)
+if (process.env.CORS_ORIGINS) {
+  process.env.CORS_ORIGINS.split(',').forEach(o => {
+    const trimmed = o.trim();
+    if (trimmed) baseAllowedOrigins.push(trimmed);
+  });
+}
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir peticiones sin origin (como Postman, curl, etc.)
     if (!origin) return callback(null, true);
-    
-    // Lista de orígenes permitidos
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'https://ssbackend-production-133b.up.railway.app'
-    ];
-    
-    // Verificar si el origin está en la lista o es un subdominio de vercel.app
-    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    if (baseAllowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Origin bloqueado: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
