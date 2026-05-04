@@ -192,7 +192,12 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
     }
 
     for (let i = 0; i < data.length; i++) {
-      const row = data[i];
+      // Normalizar claves del row: recortar espacios y convertir a mayúsculas
+      const rawRow = data[i];
+      const row = {};
+      Object.keys(rawRow).forEach(key => {
+        row[key.trim().toUpperCase()] = rawRow[key];
+      });
       const rowNumber = i + headerRange + 2; // encabezados en fila (headerRange+1), datos desde fila siguiente
 
       // Log de progreso cada 10 productos
@@ -201,8 +206,8 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
       }
 
       try {
-        // Mapear usando nombres de columnas del Excel
-        const codigoSS = row['CODIGO SS'] || row['CODIGO_SS'] || row.CODIGO_SS;
+        // Mapear usando nombres de columnas del Excel (ya normalizadas a mayúsculas)
+        const codigoSS = row['CODIGO SS'] || row['CODIGO_SS'];
         const codigoFabricante = row['CODIGO FABRICANTE'] || row['CODIGO_FABRICANTE'] || row.CODIGO_FABRICANTE;
         const codigo = row.SKU || row.sku || row.CODIGO || row.codigo;
         const nombre = row.NOMBRE || row.nombre;
