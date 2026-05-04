@@ -36,23 +36,18 @@ async function importProductsFromClient(req, res) {
     const { warehouseId, categoryMappings } = req.body;
 
     console.log('[Import Controller] warehouseId recibido:', warehouseId);
-    console.log('[Import Controller] req.body completo:', req.body);
 
-    if (!warehouseId) {
-      return res.status(400).json({ error: 'El almacén de destino es requerido' });
+    // Validar almacén solo si se proporcionó (si no, el servicio lo resuelve por columna ALMACEN)
+    if (warehouseId) {
+      const prisma = require('../prisma/client');
+      const warehouse = await prisma.warehouse.findUnique({
+        where: { id: BigInt(warehouseId) },
+      });
+      if (!warehouse) {
+        return res.status(404).json({ error: `El almacén con ID ${warehouseId} no existe` });
+      }
+      console.log('[Import Controller] Almacén validado:', warehouse.name);
     }
-
-    // Verificar que el almacén existe
-    const prisma = require('../prisma/client');
-    const warehouse = await prisma.warehouse.findUnique({
-      where: { id: BigInt(warehouseId) },
-    });
-
-    if (!warehouse) {
-      return res.status(404).json({ error: `El almacén con ID ${warehouseId} no existe` });
-    }
-
-    console.log('[Import Controller] Almacén validado:', warehouse.name);
 
     const filePath = req.file.path;
     const userId = req.user?.id || req.user?.userId;
