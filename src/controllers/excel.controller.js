@@ -13,7 +13,9 @@ async function importProducts(req, res) {
 
     // Usar el servicio con mapeo del cliente
     const userId = req.user?.id || req.user?.userId;
-    const results = await clientExcelService.importProductsFromClientExcel(req.file.path, userId);
+    const { warehouseId, categoryMappings } = req.body;
+    const parsedCategoryMappings = categoryMappings ? JSON.parse(categoryMappings) : {};
+    const results = await clientExcelService.importProductsFromClientExcel(req.file.path, userId, warehouseId, parsedCategoryMappings);
 
     fs.unlinkSync(req.file.path);
 

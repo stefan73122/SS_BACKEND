@@ -194,7 +194,12 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         const almacen = row.ALMACEN || row.almacen;
         const observaciones = row.DESCRIPCION || row.descripcion || row.OBSERVACIONES || row.observaciones;
         const precioCompra = row.PRECIO_COSTO || row['\tPRECIO_COSTO'] || row['PRECIO DE COMPRA'] || row['PRECIO_DE_COMPRA'] || row.PRECIO_DE_COMPRA;
-        const cantidad = row.CANTIDAD || row.cantidad || row.STOCK || row.stock;
+        const cantidad = row.CANTIDAD || row.cantidad
+          || row.STOCK || row.stock
+          || row['STOCK INICIAL'] || row['STOCK_INICIAL']
+          || row['STOCK TOTAL'] || row['STOCK_TOTAL']
+          || row['CANTIDAD INICIAL'] || row['CANTIDAD_INICIAL']
+          || row.QTY || row.qty;
         const precioVenta = row.PRECIO_VENTA || row['\tPRECIO_VENTA'] || row['PRECIO DE VENTA'] || row['PRECIO_DE_VENTA'] || row.PRECIO_DE_VENTA;
         const stockMinimo =
           row.STOCK_MIN ?? row.stock_min ??

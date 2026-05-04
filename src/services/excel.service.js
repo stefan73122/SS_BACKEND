@@ -271,35 +271,31 @@ function generateProductsTemplate() {
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.aoa_to_sheet([]);
 
-  // Título principal (fila 1)
+  const numCols = 11;
+
+  // Fila 1: Título principal
   XLSX.utils.sheet_add_aoa(worksheet, [
     ['LISTA CONSOLIDADA DE PRODUCTOS PARA IMPORTACIÓN']
   ], { origin: 'A1' });
 
   // Merge del título
-  worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+  worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }];
 
-  // Estilo del título
-  worksheet['A1'].s = {
-    font: { bold: true, sz: 14 },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    fill: { fgColor: { rgb: 'E7E6E6' } },
-    border: {
-      top: { style: 'thin', color: { rgb: '000000' } },
-      bottom: { style: 'thin', color: { rgb: '000000' } },
-      left: { style: 'thin', color: { rgb: '000000' } },
-      right: { style: 'thin', color: { rgb: '000000' } }
-    }
-  };
+  // Filas 2-5: instrucciones breves
+  XLSX.utils.sheet_add_aoa(worksheet, [
+    ['INSTRUCCIONES: Complete los campos requeridos (NOMBRE, SKU). Los datos deben comenzar en la FILA 7.'],
+    ['NOMBRE y SKU son obligatorios. UNIDAD es obligatoria (use: PZA, CAJA, MTR, etc.)'],
+    ['CANTIDAD = stock inicial que se asignará al almacén seleccionado al importar.'],
+    ['No modifique los encabezados de la fila 6.'],
+  ], { origin: 'A2' });
 
-  // Encabezados (fila 3)
-  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CATEGORIA', 'UNIDAD'];
-  XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A3' });
+  // Fila 6: ENCABEZADOS (range:5 en sheet_to_json empieza desde aquí)
+  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CANTIDAD', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
+  XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A6' });
 
-  // Estilo para encabezados con bordes
   const headerStyle = {
-    font: { bold: true, color: { rgb: '0000FF' } },
-    fill: { fgColor: { rgb: 'FFFFFF' } },
+    font: { bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '1F4E79' } },
     alignment: { horizontal: 'center', vertical: 'center' },
     border: {
       top: { style: 'thin', color: { rgb: '000000' } },
@@ -309,22 +305,20 @@ function generateProductsTemplate() {
     }
   };
 
-  // Aplicar estilo a encabezados
-  ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'G3', 'H3'].forEach(cell => {
+  ['A6','B6','C6','D6','E6','F6','G6','H6','I6','J6','K6'].forEach(cell => {
     if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
     worksheet[cell].s = headerStyle;
   });
 
-  // Datos de ejemplo con bordes
+  // Fila 7+: Datos de ejemplo
   const exampleData = [
-    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 5000, 8000, 50, 1, 'Pieza'],
-    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 150000, 200000, 5, 1, 'Caja'],
-    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 80000, 120000, 10, 1, 'Pieza']
+    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 50, 80, 10, 100, 'REDES', 'PZA', 'AMP', 'Proveedor Ejemplo'],
+    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 1500, 2000, 5, 10, 'REDES', 'PZA', '', ''],
+    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 800, 1200, 3, 5, 'REDES', 'PZA', 'TP-Link', ''],
   ];
 
-  XLSX.utils.sheet_add_aoa(worksheet, exampleData, { origin: 'A4' });
+  XLSX.utils.sheet_add_aoa(worksheet, exampleData, { origin: 'A7' });
 
-  // Estilo para celdas de datos con bordes
   const dataStyle = {
     alignment: { horizontal: 'left', vertical: 'center' },
     border: {
@@ -335,64 +329,40 @@ function generateProductsTemplate() {
     }
   };
 
-  // Aplicar bordes a las celdas de datos
-  for (let row = 4; row <= 6; row++) {
-    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+  for (let row = 7; row <= 9; row++) {
+    ['A','B','C','D','E','F','G','H','I','J','K'].forEach(col => {
       const cell = col + row;
       if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
       worksheet[cell].s = dataStyle;
     });
   }
 
-  // Configurar anchos de columna
   worksheet['!cols'] = [
-    { wch: 25 }, // NOMBRE
+    { wch: 30 }, // NOMBRE
     { wch: 18 }, // SKU
     { wch: 35 }, // DESCRIPCION
-    { wch: 15 }, // PRECIO_COSTO
-    { wch: 15 }, // PRECIO_VENTA
+    { wch: 14 }, // PRECIO_COSTO
+    { wch: 14 }, // PRECIO_VENTA
     { wch: 12 }, // STOCK_MIN
-    { wch: 12 }, // CATEGORIA
-    { wch: 12 }, // UNIDAD
+    { wch: 12 }, // CANTIDAD
+    { wch: 20 }, // CATEGORIA
+    { wch: 10 }, // UNIDAD
+    { wch: 15 }, // MARCA
+    { wch: 20 }, // PROVEEDOR
   ];
 
-  // Configurar altura de filas
   worksheet['!rows'] = [
-    { hpt: 25 }, // Título
-    { hpt: 15 }, // Espacio
-    { hpt: 30 }, // Encabezados
+    { hpt: 28 }, // Fila 1 título
+    { hpt: 18 }, // Fila 2
+    { hpt: 18 }, // Fila 3
+    { hpt: 18 }, // Fila 4
+    { hpt: 18 }, // Fila 5
+    { hpt: 28 }, // Fila 6 encabezados
   ];
 
-  // Habilitar autofiltro en los encabezados
-  worksheet['!autofilter'] = { ref: 'A3:H3' };
-
-  // Agregar instrucciones en una hoja separada
-  const instructionsSheet = XLSX.utils.aoa_to_sheet([
-    ['INSTRUCCIONES PARA IMPORTAR PRODUCTOS'],
-    [''],
-    ['CAMPOS OBLIGATORIOS:'],
-    ['• NOMBRE: Nombre del producto'],
-    ['• SKU: Código único del producto (no puede repetirse)'],
-    [''],
-    ['CAMPOS OPCIONALES:'],
-    ['• DESCRIPCION: Descripción detallada del producto'],
-    ['• PRECIO_COSTO: Precio de costo en BOB (sin decimales)'],
-    ['• PRECIO_VENTA: Precio de venta en BOB (sin decimales)'],
-    ['• STOCK_MIN: Stock mínimo para alertas (número entero)'],
-    ['• CATEGORIA: ID de la categoría (consultar con /api/categories)'],
-    ['• UNIDAD: Nombre de la unidad (Pieza, Caja, Metro, Litro, Kilogramo, etc.)'],
-    [''],
-    ['NOTAS IMPORTANTES:'],
-    ['• No modifique los nombres de los encabezados'],
-    ['• Puede agregar tantas filas como productos necesite'],
-    ['• Los campos vacíos se llenarán con valores por defecto'],
-    ['• Guarde el archivo en formato .xlsx antes de importar'],
-  ]);
-
-  instructionsSheet['!cols'] = [{ wch: 80 }];
+  worksheet['!autofilter'] = { ref: 'A6:K6' };
 
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
-  XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instrucciones');
 
   return workbook;
 }
