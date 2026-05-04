@@ -387,7 +387,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
         if (!resolvedWarehouseId && almacen) {
           let warehouseByName = await prisma.warehouse.findFirst({
-            where: { name: { equals: almacen.trim(), mode: 'insensitive' } },
+            where: { name: { contains: almacen.trim(), mode: 'insensitive' } },
           });
           if (!warehouseByName) {
             console.log(`[Excel Import] Almacén "${almacen}" no existe, creándolo automáticamente`);
