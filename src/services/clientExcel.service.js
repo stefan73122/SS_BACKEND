@@ -327,9 +327,9 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           brand: marca || null,
           origin: procedencia || null,
           manufacturerCode: codigoFabricante || null,
-          ...(stockMinimo !== null && stockMinimo !== undefined && !isNaN(parseFloat(stockMinimo)) && {
-            minStockGlobal: parseFloat(stockMinimo),
-          }),
+          minStockGlobal: (stockMinimo !== null && stockMinimo !== undefined && !isNaN(parseFloat(stockMinimo)))
+            ? parseFloat(stockMinimo)
+            : 20,
           ...(categoryId && { categoryId }),
           ...(unitId && { unitId }),
           ...(supplierId && { supplierId }),
