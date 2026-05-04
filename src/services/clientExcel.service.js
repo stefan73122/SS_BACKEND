@@ -262,8 +262,17 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         if (grupo) {
           // Verificar si hay un mapeo personalizado para esta categoría
           if (categoryMappings[grupo]) {
-            categoryId = BigInt(categoryMappings[grupo]);
-          } else {
+            // Validar que la categoría del mapping realmente exista
+            const mappedCategory = await prisma.productCategory.findUnique({
+              where: { id: BigInt(categoryMappings[grupo]) },
+            });
+            if (mappedCategory) {
+              categoryId = mappedCategory.id;
+            } else {
+              console.warn(`[Excel Import] Categoría mapeada ID ${categoryMappings[grupo]} no existe, buscando por nombre`);
+            }
+          }
+          if (!categoryId) {
             // Buscar categoría existente
             let category = await prisma.productCategory.findFirst({
               where: { name: { equals: grupo, mode: 'insensitive' } },
@@ -360,9 +369,22 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           results.created++;
         }
 
-        // Resolver almacén: usar parámetro warehouseId o buscar por nombre en columna ALMACEN
-        let resolvedWarehouseId = warehouseId;
+        // Resolver almacén: usar parámetro warehouseId (validando que exista) o buscar por nombre en columna ALMACEN
+        let resolvedWarehouseId = null;
         let resolvedWarehouseName = null;
+
+        if (warehouseId) {
+          const warehouseCheck = await prisma.warehouse.findUnique({
+            where: { id: BigInt(warehouseId) },
+          });
+          if (warehouseCheck) {
+            resolvedWarehouseId = warehouseId;
+            resolvedWarehouseName = warehouseCheck.name;
+          } else {
+            console.warn(`[Excel Import] warehouseId ${warehouseId} no existe en BD, buscando por columna ALMACEN`);
+          }
+        }
+
         if (!resolvedWarehouseId && almacen) {
           const warehouseByName = await prisma.warehouse.findFirst({
             where: { name: { equals: almacen.trim(), mode: 'insensitive' } },
