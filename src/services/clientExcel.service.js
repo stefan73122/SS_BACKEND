@@ -362,93 +362,76 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
         // Resolver almacén: usar parámetro warehouseId o buscar por nombre en columna ALMACEN
         let resolvedWarehouseId = warehouseId;
+        let resolvedWarehouseName = null;
         if (!resolvedWarehouseId && almacen) {
           const warehouseByName = await prisma.warehouse.findFirst({
             where: { name: { equals: almacen.trim(), mode: 'insensitive' } },
           });
           if (warehouseByName) {
             resolvedWarehouseId = warehouseByName.id.toString();
+            resolvedWarehouseName = warehouseByName.name;
             console.log(`[Excel Import] Almacén resuelto por nombre "${almacen}": ID ${resolvedWarehouseId}`);
           } else {
-            console.warn(`[Excel Import] Almacén "${almacen}" no encontrado, saltando stock para ${codigo}`);
+            console.warn(`[Excel Import] Almacén "${almacen}" no encontrado en BD`);
           }
         }
 
-        console.log(`[Excel Import] Producto ${codigo}: cantidad=${cantidad}, warehouseId=${resolvedWarehouseId}`);
-        
+        let stockSaved = false;
+        let stockQty = 0;
+        let stockWarning = null;
+
         if (resolvedWarehouseId) {
-          // Parsear cantidad (usar 0 si no hay cantidad en el Excel)
           const quantityValue = cantidad ? parseFloat(cantidad) : 0;
-          
+
           if (!isNaN(quantityValue) && quantityValue >= 0) {
             const warehouseBigIntId = BigInt(resolvedWarehouseId);
-            console.log(`[Excel Import] Asignando stock al almacén ID: ${warehouseBigIntId}`);
 
-            // Verificar si ya existe stock para este producto en este almacén
             const existingStock = await prisma.warehouseStock.findFirst({
-              where: {
-                productId: product.id,
-                warehouseId: warehouseBigIntId,
-              },
+              where: { productId: product.id, warehouseId: warehouseBigIntId },
             });
 
-            const finalQty = quantityValue >= 0 ? Math.floor(quantityValue) : 0;
+            const finalQty = Math.floor(quantityValue);
             let previousQty = 0;
 
             if (existingStock) {
               previousQty = existingStock.quantity;
-              console.log(`[Excel Import] ✅ Actualizando stock existente en almacén ${warehouseBigIntId}: ${previousQty} → ${finalQty}`);
-              // Actualizar stock existente
               await prisma.warehouseStock.update({
                 where: { id: existingStock.id },
                 data: { quantity: finalQty },
               });
             } else {
-              console.log(`[Excel Import] ✅ Creando nuevo stock en almacén ${warehouseBigIntId}: cantidad=${finalQty}`);
-              // Crear nuevo registro de stock
               await prisma.warehouseStock.create({
-                data: {
-                  productId: product.id,
-                  warehouseId: warehouseBigIntId,
-                  quantity: finalQty,
-                },
+                data: { productId: product.id, warehouseId: warehouseBigIntId, quantity: finalQty },
               });
             }
 
-            // Registrar movimiento de inventario solo si hay userId y cantidad mayor a 0
+            stockSaved = true;
+            stockQty = finalQty;
+
             if (userId && finalQty > 0) {
               const isNew = action === 'created';
-              const movType = isNew ? 'INGRESO' : 'AJUSTE';
-              const movReason = isNew ? 'COMPRA' : 'AJUSTE_MANUAL';
-              console.log(`[Excel Import] Creando movimiento ${movType}/${movReason} para producto ${product.sku}, qty=${finalQty}`);
               try {
                 await prisma.inventoryMovement.create({
                   data: {
-                    type: movType,
-                    reason: movReason,
-                    note: `Importación Excel - ${isNew ? 'Producto nuevo' : `Actualización de stock (anterior: ${previousQty})`}`,
+                    type: isNew ? 'INGRESO' : 'AJUSTE',
+                    reason: isNew ? 'COMPRA' : 'AJUSTE_MANUAL',
+                    note: `Importación Excel - ${isNew ? 'Producto nuevo' : `Actualización (anterior: ${previousQty})`}`,
                     createdBy: BigInt(userId),
                     warehouseToId: warehouseBigIntId,
-                    items: {
-                      create: {
-                        productId: product.id,
-                        quantity: finalQty,
-                      },
-                    },
+                    items: { create: { productId: product.id, quantity: finalQty } },
                   },
                 });
-                console.log(`[Excel Import] ✅ Movimiento creado para ${product.sku}`);
               } catch (movError) {
-                console.error(`[Excel Import] ❌ Error creando movimiento para ${product.sku}:`, movError.message);
+                console.error(`[Excel Import] Error movimiento ${product.sku}:`, movError.message);
               }
-            } else {
-              console.log(`[Excel Import] ⚠️ Sin movimiento: userId=${userId}, finalQty=${finalQty}`);
             }
           } else {
-            console.log(`[Excel Import] ❌ Cantidad inválida para producto ${codigo}: quantityValue=${quantityValue}`);
+            stockWarning = `Cantidad inválida: "${cantidad}"`;
           }
         } else {
-          console.log(`[Excel Import] ⚠️ Sin almacén definido para ${codigo}: ni warehouseId ni columna ALMACEN válida`);
+          stockWarning = almacen
+            ? `Almacén "${almacen}" no existe en el sistema`
+            : 'No se especificó almacén';
         }
 
         results.success.push({
@@ -457,6 +440,10 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           productId: product.id.toString(),
           sku: product.sku,
           name: product.name,
+          stockSaved,
+          stockQty,
+          warehouse: resolvedWarehouseName || almacen || null,
+          ...(stockWarning && { stockWarning }),
         });
       } catch (error) {
         results.errors.push({
