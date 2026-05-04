@@ -2,6 +2,32 @@ const XLSX = require('xlsx');
 const prisma = require('../prisma/client');
 
 /**
+ * Detecta automáticamente en qué fila están los encabezados del Excel.
+ * Busca una fila que contenga al menos NOMBRE o SKU/CODIGO.
+ * Soporta formato 1: encabezados en fila 1 (range 0)
+ * Soporta formato 2: encabezados en fila 6 (range 5) con título en filas 1-5
+ * Retorna el range (índice 0-based) a usar en sheet_to_json.
+ */
+function detectHeaderRow(worksheet) {
+  const keyColumns = ['NOMBRE', 'nombre', 'SKU', 'sku', 'CODIGO', 'codigo', 'NAME', 'name'];
+  // Escanear filas 0-9 buscando una que tenga columnas clave
+  for (let rowIndex = 0; rowIndex <= 9; rowIndex++) {
+    const rowData = XLSX.utils.sheet_to_json(worksheet, { range: rowIndex, header: 1 });
+    if (rowData.length > 0) {
+      const firstRow = (rowData[0] || []).map(v => String(v || '').trim());
+      const hasKey = keyColumns.some(k => firstRow.includes(k));
+      if (hasKey) {
+        console.log(`[Excel] Encabezados detectados en fila ${rowIndex + 1} (range: ${rowIndex})`);
+        return rowIndex;
+      }
+    }
+  }
+  // Fallback: asumir fila 1
+  console.warn('[Excel] No se detectaron encabezados, usando fila 1 por defecto');
+  return 0;
+}
+
+/**
  * Previsualizar importación de productos desde Excel
  * Analiza el archivo y detecta categorías nuevas que se crearán
  */
@@ -10,17 +36,10 @@ async function previewImportFromClientExcel(filePath) {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    // Leer desde fila 6 (índice 5) donde están los encabezados
-    const data = XLSX.utils.sheet_to_json(worksheet, { range: 5 });
+    const headerRange = detectHeaderRow(worksheet);
+    const data = XLSX.utils.sheet_to_json(worksheet, { range: headerRange });
 
-    // Debug: ver qué columnas detecta
-    console.log('=== DEBUG PREVIEW ===');
-    console.log('Total filas leídas:', data.length);
-    if (data.length > 0) {
-      console.log('Columnas detectadas:', Object.keys(data[0]));
-      console.log('Primera fila completa:', JSON.stringify(data[0], null, 2));
-    }
-    console.log('====================');
+    console.log(`[Preview] Formato detectado: encabezados en fila ${headerRange + 1}, ${data.length} filas de datos`);
 
     const preview = {
       totalProducts: data.length,
@@ -151,8 +170,9 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Leer desde fila 6 (índice 5) donde están los encabezados
-    const data = XLSX.utils.sheet_to_json(worksheet, { range: 5 });
+    const headerRange = detectHeaderRow(worksheet);
+    const data = XLSX.utils.sheet_to_json(worksheet, { range: headerRange });
+    console.log(`[Import] Formato detectado: encabezados en fila ${headerRange + 1}, ${data.length} filas de datos`);
 
     const results = {
       success: [],
@@ -173,7 +193,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowNumber = i + 7; // +7 porque fila 6 son encabezados, datos desde fila 7
+      const rowNumber = i + headerRange + 2; // encabezados en fila (headerRange+1), datos desde fila siguiente
 
       // Log de progreso cada 10 productos
       if (i > 0 && i % 10 === 0) {
