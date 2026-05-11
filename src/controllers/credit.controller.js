@@ -1,9 +1,10 @@
 const creditService = require('../services/credit.service');
+const { serializeBigInt } = require('../utils/bigintSerializer');
 
 async function getAllCreditPayments(req, res) {
   try {
     const { page, limit, status, clientId, sortBy } = req.query;
-    
+
     const result = await creditService.getAllCreditPayments({
       page,
       limit,
@@ -12,7 +13,7 @@ async function getAllCreditPayments(req, res) {
       sortBy,
     });
 
-    res.json(result);
+    res.json(serializeBigInt(result));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -21,7 +22,7 @@ async function getAllCreditPayments(req, res) {
 async function getCreditSummary(req, res) {
   try {
     const summary = await creditService.getCreditSummary();
-    res.json(summary);
+    res.json(serializeBigInt(summary));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -31,7 +32,7 @@ async function markPaymentAsPaid(req, res) {
   try {
     const { id } = req.params;
     const paymentTerm = await creditService.markPaymentAsPaid(id);
-    res.json(paymentTerm);
+    res.json(serializeBigInt(paymentTerm));
   } catch (error) {
     if (error.message === 'Término de pago no encontrado') {
       return res.status(404).json({ error: error.message });
