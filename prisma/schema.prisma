@@ -23,6 +23,7 @@ enum ClientType {
 
 enum WarehouseType {
   PRINCIPAL
+  SECUNDARIO
   HERRAMIENTAS
   ELECTRICO
   CONTROL
