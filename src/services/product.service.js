@@ -160,10 +160,13 @@ async function updateProduct(id, data) {
     ...(brand !== undefined && { brand }),
     ...(origin !== undefined && { origin }),
     ...(manufacturerCode !== undefined && { manufacturerCode }),
-    ...(supplierId !== undefined && { supplierId: supplierId ? BigInt(supplierId) : null }),
   };
 
   // Actualizar relaciones usando connect
+  if (supplierId !== undefined) {
+    updateData.supplier = supplierId ? { connect: { id: BigInt(supplierId) } } : { disconnect: true };
+  }
+
   if (categoryId !== undefined) {
     if (categoryId === null) {
       updateData.category = { disconnect: true };

@@ -17,8 +17,8 @@ async function runMigrations() {
   try {
     console.log('🔄 Ejecutando migraciones de base de datos...');
 
-    // Ejecutar prisma db push
-    await execPromise('npx prisma db push --accept-data-loss');
+    // Ejecutar prisma db push (sin --accept-data-loss para proteger datos en producción)
+    await execPromise('npx prisma db push');
     console.log('✅ Migraciones completadas');
 
     // Eliminar triggers de DB que conflictúan con la lógica de la app
