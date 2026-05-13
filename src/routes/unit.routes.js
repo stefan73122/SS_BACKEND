@@ -4,10 +4,14 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Endpoint público temporal para verificar que funciona
 router.get('/public', unitController.getAllUnits);
 
-router.get('/', authMiddleware, unitController.getAllUnits);
-router.get('/:id', authMiddleware, unitController.getUnitById);
+router.use(authMiddleware);
+
+router.get('/', unitController.getAllUnits);
+router.get('/:id', unitController.getUnitById);
+router.post('/', unitController.createUnit);
+router.put('/:id', unitController.updateUnit);
+router.delete('/:id', unitController.deleteUnit);
 
 module.exports = router;
