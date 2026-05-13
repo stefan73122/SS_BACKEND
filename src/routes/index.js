@@ -18,6 +18,7 @@ const unitRoutes = require('./unit.routes');
 const creditRoutes = require('./credit.routes');
 const healthRoutes = require('./health.routes');
 const notificationRoutes = require('./notification.routes');
+const serviceRoutes = require('./service.routes');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -41,6 +42,7 @@ router.use('/excel', excelRoutes);
 router.use('/units', unitRoutes);
 router.use('/credits', creditRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/services', serviceRoutes);
 
 router.get('/profile', authMiddleware, (req, res) => {
   res.json({ message: 'Perfil del usuario', userId: req.userId });
