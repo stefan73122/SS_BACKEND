@@ -80,9 +80,8 @@ async function resetDatabase() {
 resetDatabase()
   .then(() => {
     console.log('✅ Proceso finalizado correctamente');
-    process.exit(0);
   })
   .catch((error) => {
     console.error('❌ Error fatal:', error);
-    process.exit(1);
+    process.exitCode = 1;
   });

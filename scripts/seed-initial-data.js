@@ -424,9 +424,8 @@ async function seedInitialData() {
 seedInitialData()
   .then(() => {
     console.log('✅ Seeder finalizado correctamente');
-    process.exit(0);
   })
   .catch((error) => {
     console.error('❌ Error fatal:', error);
-    process.exit(1);
+    process.exitCode = 1;
   });
