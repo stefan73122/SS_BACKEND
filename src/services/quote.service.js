@@ -106,7 +106,7 @@ async function getQuoteById(id) {
 }
 
 async function createQuote(data) {
-  const { clientId, createdBy, items, quoteType, paymentType, validUntil, notes, discount } = data;
+  const { clientId, createdBy, items, quoteType, paymentType, validUntil, notes, discount, paymentTerms } = data;
 
   const quoteNumber = await generateQuoteNumber();
 
@@ -115,7 +115,7 @@ async function createQuote(data) {
 
   for (const item of items) {
     let itemDiscountPercent = 0;
-    
+
     if (item.discount && item.discount > 0) {
       // Si el descuento es mayor que 100, asumimos que es un monto en Bs, no un porcentaje
       // Ejemplo: producto de 63.76 Bs con descuento de 5.9 Bs = (5.9 / 63.76) * 100 = 9.25%
@@ -126,7 +126,7 @@ async function createQuote(data) {
         itemDiscountPercent = item.discount;
       }
     }
-    
+
     const itemTotal = item.quantity * item.unitPrice * (1 - itemDiscountPercent / 100);
     subtotal += itemTotal;
 
@@ -144,6 +144,27 @@ async function createQuote(data) {
   const discountAmount = discount ? (subtotal * discount) / 100 : 0;
   const grandTotal = subtotal - discountAmount;
 
+  // Calcular términos de pago si se proporcionan (para crédito)
+  let paymentTermsData = undefined;
+  if (paymentTerms && Array.isArray(paymentTerms) && paymentTerms.length > 0) {
+    const issueDate = new Date();
+    paymentTermsData = {
+      create: paymentTerms.map(term => {
+        const dueDate = new Date(issueDate);
+        dueDate.setDate(dueDate.getDate() + (term.daysAfterIssue || 0));
+        const amount = grandTotal * ((term.percentage || 100) / 100);
+        return {
+          installmentNumber: term.installmentNumber || 1,
+          percentage: term.percentage || 100,
+          amount,
+          daysAfterIssue: term.daysAfterIssue || 0,
+          dueDate,
+          description: term.description || null,
+        };
+      }),
+    };
+  }
+
   const quote = await prisma.quote.create({
     data: {
       quoteNumber,
@@ -160,6 +181,7 @@ async function createQuote(data) {
       items: {
         create: itemsData,
       },
+      ...(paymentTermsData && { paymentTerms: paymentTermsData }),
     },
     include: {
       client: true,
@@ -167,6 +189,9 @@ async function createQuote(data) {
         include: {
           product: true,
         },
+      },
+      paymentTerms: {
+        orderBy: { installmentNumber: 'asc' },
       },
     },
   });
