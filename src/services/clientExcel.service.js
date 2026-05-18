@@ -390,19 +390,30 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           }
         }
 
+        let warehouseResolveError = null;
         if (!resolvedWarehouseId && almacen) {
           let warehouseByName = await prisma.warehouse.findFirst({
-            where: { name: { contains: almacen.trim(), mode: 'insensitive' } },
+            where: { name: { equals: almacen.trim(), mode: 'insensitive' } },
           });
           if (!warehouseByName) {
-            console.log(`[Excel Import] Almacén "${almacen}" no existe, creándolo automáticamente`);
-            warehouseByName = await prisma.warehouse.create({
-              data: { name: almacen.trim() },
-            });
+            // Generar código único a partir del nombre (ej: "LA PAZ" → "LA_PAZ")
+            const generatedCode = almacen.trim().toUpperCase().replace(/\s+/g, '_').slice(0, 20);
+            const codeExists = await prisma.warehouse.findUnique({ where: { code: generatedCode } });
+            if (codeExists) {
+              console.warn(`[Excel Import] Código "${generatedCode}" ya existe con otro nombre`);
+              warehouseResolveError = `Almacén "${almacen}" no encontrado y el código "${generatedCode}" ya está en uso. Crea el almacén manualmente.`;
+            } else {
+              console.log(`[Excel Import] Almacén "${almacen}" no existe, creándolo automáticamente`);
+              warehouseByName = await prisma.warehouse.create({
+                data: { name: almacen.trim(), code: generatedCode },
+              });
+            }
           }
-          resolvedWarehouseId = warehouseByName.id.toString();
-          resolvedWarehouseName = warehouseByName.name;
-          console.log(`[Excel Import] Almacén "${almacen}": ID ${resolvedWarehouseId}`);
+          if (warehouseByName) {
+            resolvedWarehouseId = warehouseByName.id.toString();
+            resolvedWarehouseName = warehouseByName.name;
+            console.log(`[Excel Import] Almacén "${almacen}": ID ${resolvedWarehouseId}`);
+          }
         }
 
         let stockSaved = false;
@@ -458,9 +469,8 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
             stockWarning = `Cantidad inválida: "${cantidad}"`;
           }
         } else {
-          stockWarning = almacen
-            ? `Almacén "${almacen}" no existe en el sistema`
-            : 'No se especificó almacén';
+          stockWarning = warehouseResolveError
+            || (almacen ? `Almacén "${almacen}" no encontrado` : 'No se especificó almacén');
         }
 
         results.success.push({
