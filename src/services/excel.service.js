@@ -1,24 +1,57 @@
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const prisma = require('../prisma/client');
+
+function getCellValue(cell) {
+  const v = cell.value;
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object') {
+    if (v.richText) return v.richText.map(r => r.text).join('');
+    if (v.formula !== undefined) return v.result ?? null;
+    if (v instanceof Date) return v;
+  }
+  return v;
+}
+
+function worksheetToJson(worksheet, headerRowIndex = 1) {
+  const headers = {};
+  const data = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === headerRowIndex) {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const val = getCellValue(cell);
+        if (val != null) headers[colNumber] = String(val).trim();
+      });
+    } else if (rowNumber > headerRowIndex) {
+      const obj = {};
+      let hasData = false;
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        if (headers[colNumber]) {
+          const val = getCellValue(cell);
+          obj[headers[colNumber]] = val;
+          if (val != null && val !== '') hasData = true;
+        }
+      });
+      if (hasData) data.push(obj);
+    }
+  });
+
+  return data;
+}
 
 async function importProductsFromExcel(filePath) {
   try {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
+    const data = worksheetToJson(worksheet, 1);
 
-    const results = {
-      success: [],
-      errors: [],
-      total: data.length,
-    };
+    const results = { success: [], errors: [], total: data.length };
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowNumber = i + 2;
 
-      // Normalizar nombres de columnas (soportar mayúsculas y minúsculas)
       const normalizedRow = {
         name: row.NOMBRE || row.name,
         sku: row.SKU || row.sku,
@@ -27,7 +60,6 @@ async function importProductsFromExcel(filePath) {
         salePrice: row.PRECIO_VENTA || row.salePrice,
         minStock: row.STOCK_MIN || row['STOCK MIN'] || row.minStock,
         categoryId: row.CATEGORIA || row.categoryId,
-        unitId: row.UNIDAD || row.unitId,
         unitName: row.UNIDAD || row.unitName || row.unitId,
         quantity: row.CANTIDAD ?? row.quantity ?? null,
         warehouseRef: row.ALMACEN ?? row.warehouseId ?? null,
@@ -35,11 +67,7 @@ async function importProductsFromExcel(filePath) {
 
       try {
         if (!normalizedRow.name || !normalizedRow.sku) {
-          results.errors.push({
-            row: rowNumber,
-            error: 'Campos requeridos: NOMBRE, SKU',
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: 'Campos requeridos: NOMBRE, SKU', data: row });
           continue;
         }
 
@@ -52,19 +80,11 @@ async function importProductsFromExcel(filePath) {
           continue;
         }
 
-        // Buscar unidad por nombre o ID
         let unitId;
         if (isNaN(normalizedRow.unitName)) {
-          // Es un nombre de unidad, buscar por nombre
           const unit = await prisma.unit.findFirst({
-            where: {
-              name: {
-                equals: normalizedRow.unitName,
-                mode: 'insensitive',
-              },
-            },
+            where: { name: { equals: String(normalizedRow.unitName), mode: 'insensitive' } },
           });
-
           if (!unit) {
             results.errors.push({
               row: rowNumber,
@@ -75,39 +95,30 @@ async function importProductsFromExcel(filePath) {
           }
           unitId = unit.id;
         } else {
-          // Es un ID numérico
           unitId = BigInt(normalizedRow.unitName);
         }
 
-        const existing = await prisma.product.findUnique({
-          where: { sku: normalizedRow.sku },
-        });
-
+        const existing = await prisma.product.findUnique({ where: { sku: String(normalizedRow.sku) } });
         if (existing) {
-          results.errors.push({
-            row: rowNumber,
-            error: `Producto con SKU "${normalizedRow.sku}" ya existe`,
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: `Producto con SKU "${normalizedRow.sku}" ya existe`, data: row });
           continue;
         }
 
-        const productData = {
-          name: normalizedRow.name,
-          sku: normalizedRow.sku,
-          description: normalizedRow.description || null,
-          costPrice: normalizedRow.costPrice ? parseFloat(normalizedRow.costPrice) : null,
-          salePrice: normalizedRow.salePrice ? parseFloat(normalizedRow.salePrice) : null,
-          minStockGlobal: normalizedRow.minStock ? parseInt(normalizedRow.minStock) : null,
-          unitId: unitId,
-          ...(normalizedRow.categoryId && { categoryId: BigInt(normalizedRow.categoryId) }),
-        };
-
         const product = await prisma.product.create({
-          data: productData,
+          data: {
+            name: normalizedRow.name,
+            sku: String(normalizedRow.sku),
+            description: normalizedRow.description || null,
+            costPrice: normalizedRow.costPrice ? parseFloat(normalizedRow.costPrice) : null,
+            salePrice: normalizedRow.salePrice ? parseFloat(normalizedRow.salePrice) : null,
+            minStockGlobal: normalizedRow.minStock ? parseInt(normalizedRow.minStock) : null,
+            unitId,
+            ...(normalizedRow.categoryId && !isNaN(normalizedRow.categoryId)
+              ? { categoryId: BigInt(normalizedRow.categoryId) }
+              : {}),
+          },
         });
 
-        // Asignar stock inicial si se especificaron CANTIDAD y ALMACEN
         if (normalizedRow.quantity != null && normalizedRow.warehouseRef != null) {
           let warehouseId;
           if (isNaN(normalizedRow.warehouseRef)) {
@@ -128,20 +139,23 @@ async function importProductsFromExcel(filePath) {
           }
 
           if (warehouseId) {
-            const quantity = parseInt(normalizedRow.quantity);
-            await prisma.stock.create({
-              data: { productId: product.id, warehouseId, quantity },
-            });
-            await prisma.inventoryMovement.create({
-              data: {
-                productId: product.id,
-                warehouseId,
-                type: 'INGRESO',
-                reason: 'COMPRA',
-                quantity,
-                notes: 'Stock inicial desde importación Excel',
-                userId: null,
-              },
+            const quantity = parseFloat(normalizedRow.quantity);
+            await prisma.$transaction(async (tx) => {
+              await tx.warehouseStock.upsert({
+                where: { warehouseId_productId: { warehouseId, productId: product.id } },
+                create: { productId: product.id, warehouseId, quantity },
+                update: { quantity: { increment: quantity } },
+              });
+              await tx.inventoryMovement.create({
+                data: {
+                  type: 'INGRESO',
+                  reason: 'COMPRA',
+                  note: 'Stock inicial desde importación Excel',
+                  warehouseToId: warehouseId,
+                  createdBy: BigInt(1),
+                  items: { create: { productId: product.id, quantity } },
+                },
+              });
             });
           }
         }
@@ -153,11 +167,7 @@ async function importProductsFromExcel(filePath) {
           name: product.name,
         });
       } catch (error) {
-        results.errors.push({
-          row: rowNumber,
-          error: error.message,
-          data: row,
-        });
+        results.errors.push({ row: rowNumber, error: error.message, data: row });
       }
     }
 
@@ -169,16 +179,12 @@ async function importProductsFromExcel(filePath) {
 
 async function updateStockFromExcel(filePath) {
   try {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
+    const data = worksheetToJson(worksheet, 1);
 
-    const results = {
-      success: [],
-      errors: [],
-      total: data.length,
-    };
+    const results = { success: [], errors: [], total: data.length };
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -186,62 +192,30 @@ async function updateStockFromExcel(filePath) {
 
       try {
         if (!row.sku && !row.productId) {
-          results.errors.push({
-            row: rowNumber,
-            error: 'Se requiere sku o productId',
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: 'Se requiere sku o productId', data: row });
           continue;
         }
-
         if (!row.warehouseId) {
-          results.errors.push({
-            row: rowNumber,
-            error: 'Se requiere warehouseId',
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: 'Se requiere warehouseId', data: row });
           continue;
         }
-
         if (!row.quantity) {
-          results.errors.push({
-            row: rowNumber,
-            error: 'Se requiere quantity',
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: 'Se requiere quantity', data: row });
           continue;
         }
 
-        let product;
-        if (row.sku) {
-          product = await prisma.product.findUnique({
-            where: { sku: row.sku },
-          });
-        } else {
-          product = await prisma.product.findUnique({
-            where: { id: BigInt(row.productId) },
-          });
-        }
+        const product = row.sku
+          ? await prisma.product.findUnique({ where: { sku: String(row.sku) } })
+          : await prisma.product.findUnique({ where: { id: BigInt(row.productId) } });
 
         if (!product) {
-          results.errors.push({
-            row: rowNumber,
-            error: `Producto no encontrado: ${row.sku || row.productId}`,
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: `Producto no encontrado: ${row.sku || row.productId}`, data: row });
           continue;
         }
 
-        const warehouse = await prisma.warehouse.findUnique({
-          where: { id: BigInt(row.warehouseId) },
-        });
-
+        const warehouse = await prisma.warehouse.findUnique({ where: { id: BigInt(row.warehouseId) } });
         if (!warehouse) {
-          results.errors.push({
-            row: rowNumber,
-            error: `Almacén no encontrado: ${row.warehouseId}`,
-            data: row,
-          });
+          results.errors.push({ row: rowNumber, error: `Almacén no encontrado: ${row.warehouseId}`, data: row });
           continue;
         }
 
@@ -249,40 +223,24 @@ async function updateStockFromExcel(filePath) {
         const type = row.type || 'AJUSTE';
         const reason = row.reason || 'AJUSTE_MANUAL';
 
-        const existingStock = await prisma.stock.findFirst({
-          where: {
-            productId: product.id,
-            warehouseId: BigInt(row.warehouseId),
-          },
-        });
-
-        if (existingStock) {
-          await prisma.stock.update({
-            where: { id: existingStock.id },
+        await prisma.$transaction(async (tx) => {
+          await tx.warehouseStock.upsert({
+            where: { warehouseId_productId: { warehouseId: BigInt(row.warehouseId), productId: product.id } },
+            update: { quantity },
+            create: { productId: product.id, warehouseId: BigInt(row.warehouseId), quantity },
+          });
+          await tx.inventoryMovement.create({
             data: {
-              quantity: quantity,
+              type,
+              reason,
+              note: row.notes || 'Actualización desde Excel',
+              ...(type === 'INGRESO'
+                ? { warehouseToId: BigInt(row.warehouseId) }
+                : { warehouseFromId: BigInt(row.warehouseId) }),
+              createdBy: row.userId ? BigInt(row.userId) : BigInt(1),
+              items: { create: { productId: product.id, quantity: Math.abs(quantity) } },
             },
           });
-        } else {
-          await prisma.stock.create({
-            data: {
-              productId: product.id,
-              warehouseId: BigInt(row.warehouseId),
-              quantity: quantity,
-            },
-          });
-        }
-
-        await prisma.inventoryMovement.create({
-          data: {
-            productId: product.id,
-            warehouseId: BigInt(row.warehouseId),
-            type: type,
-            reason: reason,
-            quantity: Math.abs(quantity),
-            notes: row.notes || 'Actualización desde Excel',
-            userId: row.userId ? BigInt(row.userId) : null,
-          },
         });
 
         results.success.push({
@@ -291,14 +249,10 @@ async function updateStockFromExcel(filePath) {
           sku: product.sku,
           name: product.name,
           warehouseId: row.warehouseId,
-          quantity: quantity,
+          quantity,
         });
       } catch (error) {
-        results.errors.push({
-          row: rowNumber,
-          error: error.message,
-          data: row,
-        });
+        results.errors.push({ row: rowNumber, error: error.message, data: row });
       }
     }
 
@@ -309,175 +263,127 @@ async function updateStockFromExcel(filePath) {
 }
 
 function generateProductsTemplate() {
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.aoa_to_sheet([]);
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Productos');
 
   const numCols = 12;
 
-  // Fila 1: Título principal
-  XLSX.utils.sheet_add_aoa(worksheet, [
-    ['LISTA CONSOLIDADA DE PRODUCTOS PARA IMPORTACIÓN']
-  ], { origin: 'A1' });
+  // Fila 1: Título
+  worksheet.mergeCells(`A1:L1`);
+  const titleCell = worksheet.getCell('A1');
+  titleCell.value = 'LISTA CONSOLIDADA DE PRODUCTOS PARA IMPORTACIÓN';
+  titleCell.font = { bold: true, size: 13 };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  worksheet.getRow(1).height = 28;
 
-  // Merge del título
-  worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }];
-
-  // Filas 2-5: instrucciones breves
-  XLSX.utils.sheet_add_aoa(worksheet, [
-    ['INSTRUCCIONES: Complete los campos requeridos (NOMBRE, SKU). Los datos deben comenzar en la FILA 7.'],
-    ['NOMBRE y SKU son obligatorios. UNIDAD es obligatoria (use: PZA, CAJA, MTR, etc.)'],
-    ['CANTIDAD + ALMACEN = stock inicial. Puede usar el nombre o ID del almacén. Si se omiten, el producto se crea sin stock.'],
-    ['No modifique los encabezados de la fila 6.'],
-  ], { origin: 'A2' });
-
-  // Fila 6: ENCABEZADOS (range:5 en sheet_to_json empieza desde aquí)
-  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CANTIDAD', 'ALMACEN', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
-  XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A6' });
-
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '1F4E79' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border: {
-      top: { style: 'thin', color: { rgb: '000000' } },
-      bottom: { style: 'thin', color: { rgb: '000000' } },
-      left: { style: 'thin', color: { rgb: '000000' } },
-      right: { style: 'thin', color: { rgb: '000000' } }
-    }
-  };
-
-  ['A6','B6','C6','D6','E6','F6','G6','H6','I6','J6','K6','L6'].forEach(cell => {
-    if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
-    worksheet[cell].s = headerStyle;
+  // Filas 2-5: Instrucciones
+  const instructions = [
+    'INSTRUCCIONES: Complete los campos requeridos (NOMBRE, SKU). Los datos deben comenzar en la FILA 7.',
+    'NOMBRE y SKU son obligatorios. UNIDAD es obligatoria (use: PZA, CAJA, MTR, etc.)',
+    'CANTIDAD + ALMACEN = stock inicial. Puede usar el nombre o ID del almacén. Si se omiten, el producto se crea sin stock.',
+    'No modifique los encabezados de la fila 6.',
+  ];
+  instructions.forEach((text, i) => {
+    worksheet.getCell(`A${i + 2}`).value = text;
+    worksheet.getRow(i + 2).height = 18;
   });
 
-  // Fila 7+: Datos de ejemplo (NOMBRE, SKU, DESC, P_COSTO, P_VENTA, STOCK_MIN, CANTIDAD, ALMACEN, CATEGORIA, UNIDAD, MARCA, PROVEEDOR)
+  // Fila 6: Encabezados
+  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CANTIDAD', 'ALMACEN', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
+  const headerRow = worksheet.getRow(6);
+  headers.forEach((header, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } },
+    };
+  });
+  headerRow.height = 28;
+
+  // Filas 7-9: Datos de ejemplo
   const exampleData = [
     ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 50, 80, 10, 100, 'Almacén Principal', 'REDES', 'PZA', 'AMP', 'Proveedor Ejemplo'],
     ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 1500, 2000, 5, 10, 'Almacén Secundario', 'REDES', 'PZA', '', ''],
     ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 800, 1200, 3, 5, 'Almacén Principal', 'REDES', 'PZA', 'TP-Link', ''],
   ];
-
-  XLSX.utils.sheet_add_aoa(worksheet, exampleData, { origin: 'A7' });
-
-  const dataStyle = {
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border: {
-      top: { style: 'thin', color: { rgb: 'D3D3D3' } },
-      bottom: { style: 'thin', color: { rgb: 'D3D3D3' } },
-      left: { style: 'thin', color: { rgb: 'D3D3D3' } },
-      right: { style: 'thin', color: { rgb: 'D3D3D3' } }
-    }
-  };
-
-  for (let row = 7; row <= 9; row++) {
-    ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(col => {
-      const cell = col + row;
-      if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
-      worksheet[cell].s = dataStyle;
+  exampleData.forEach((rowData, i) => {
+    const row = worksheet.getRow(7 + i);
+    rowData.forEach((val, colIdx) => {
+      const cell = row.getCell(colIdx + 1);
+      cell.value = val;
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+        bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+        left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+        right: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+      };
     });
-  }
+  });
 
-  worksheet['!cols'] = [
-    { wch: 30 }, // NOMBRE
-    { wch: 18 }, // SKU
-    { wch: 35 }, // DESCRIPCION
-    { wch: 14 }, // PRECIO_COSTO
-    { wch: 14 }, // PRECIO_VENTA
-    { wch: 12 }, // STOCK_MIN
-    { wch: 12 }, // CANTIDAD
-    { wch: 22 }, // ALMACEN
-    { wch: 20 }, // CATEGORIA
-    { wch: 10 }, // UNIDAD
-    { wch: 15 }, // MARCA
-    { wch: 20 }, // PROVEEDOR
-  ];
+  // Anchos de columna
+  [30, 18, 35, 14, 14, 12, 12, 22, 20, 10, 15, 20].forEach((width, i) => {
+    worksheet.getColumn(i + 1).width = width;
+  });
 
-  worksheet['!rows'] = [
-    { hpt: 28 }, // Fila 1 título
-    { hpt: 18 }, // Fila 2
-    { hpt: 18 }, // Fila 3
-    { hpt: 18 }, // Fila 4
-    { hpt: 18 }, // Fila 5
-    { hpt: 28 }, // Fila 6 encabezados
-  ];
-
-  worksheet['!autofilter'] = { ref: 'A6:L6' };
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+  // Autofilter
+  worksheet.autoFilter = { from: { row: 6, column: 1 }, to: { row: 6, column: numCols } };
 
   return workbook;
 }
 
 function generateStockTemplate() {
-  const template = [
-    {
-      sku: 'CAB-UTP-CAT6',
-      productId: '',
-      warehouseId: 1,
-      quantity: 100,
-      type: 'INGRESO',
-      reason: 'COMPRA',
-      notes: 'Compra inicial',
-      userId: '',
-    },
-    {
-      sku: 'SW-24P',
-      productId: '',
-      warehouseId: 1,
-      quantity: 10,
-      type: 'INGRESO',
-      reason: 'COMPRA',
-      notes: 'Compra inicial',
-      userId: '',
-    },
-  ];
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Stock');
 
-  const worksheet = XLSX.utils.json_to_sheet(template);
-  
-  // Configurar anchos de columna
-  worksheet['!cols'] = [
-    { wch: 20 }, // sku
-    { wch: 12 }, // productId
-    { wch: 15 }, // warehouseId
-    { wch: 12 }, // quantity
-    { wch: 12 }, // type
-    { wch: 15 }, // reason
-    { wch: 40 }, // notes
-    { wch: 12 }, // userId
-  ];
-
-  // Estilo para encabezados
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '70AD47' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-  };
-
-  // Aplicar estilo a encabezados (fila 1)
-  const headers = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
-  headers.forEach(cell => {
-    if (worksheet[cell]) {
-      worksheet[cell].s = headerStyle;
-    }
+  // Encabezados
+  const headers = ['sku', 'productId', 'warehouseId', 'quantity', 'type', 'reason', 'notes', 'userId'];
+  const headerRow = worksheet.getRow(1);
+  headers.forEach((h, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = h;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
   });
 
-  // Agregar nota explicativa
-  XLSX.utils.sheet_add_aoa(worksheet, [
-    [''],
-    ['INSTRUCCIONES:'],
-    ['- sku: Código del producto (obligatorio si no se usa productId)'],
-    ['- productId: ID del producto (dejar vacío si se usa sku)'],
-    ['- warehouseId: ID del almacén (consultar con /api/warehouses)'],
-    ['- quantity: Cantidad a ingresar/egresar'],
-    ['- type: INGRESO o EGRESO'],
-    ['- reason: COMPRA, VENTA, AJUSTE, DEVOLUCION, TRASLADO, OTRO'],
-    ['- notes: Notas adicionales'],
-    ['- userId: Dejar vacío (se asigna automáticamente)'],
-  ], { origin: 'A' + (template.length + 3) });
+  // Datos de ejemplo
+  [
+    ['CAB-UTP-CAT6', '', 1, 100, 'INGRESO', 'COMPRA', 'Compra inicial', ''],
+    ['SW-24P', '', 1, 10, 'INGRESO', 'COMPRA', 'Compra inicial', ''],
+  ].forEach((rowData, i) => {
+    const row = worksheet.getRow(i + 2);
+    rowData.forEach((val, colIdx) => {
+      row.getCell(colIdx + 1).value = val;
+    });
+  });
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock');
+  // Instrucciones
+  [
+    '',
+    'INSTRUCCIONES:',
+    '- sku: Código del producto (obligatorio si no se usa productId)',
+    '- productId: ID del producto (dejar vacío si se usa sku)',
+    '- warehouseId: ID del almacén (consultar con /api/warehouses)',
+    '- quantity: Cantidad a ingresar/egresar',
+    '- type: INGRESO o EGRESO',
+    '- reason: COMPRA, VENTA, AJUSTE, DEVOLUCION, TRASLADO, OTRO',
+    '- notes: Notas adicionales',
+    '- userId: Dejar vacío (se asigna automáticamente)',
+  ].forEach((text, i) => {
+    worksheet.getCell(`A${4 + i}`).value = text;
+  });
+
+  // Anchos de columna
+  [20, 12, 15, 12, 12, 15, 40, 12].forEach((width, i) => {
+    worksheet.getColumn(i + 1).width = width;
+  });
 
   return workbook;
 }

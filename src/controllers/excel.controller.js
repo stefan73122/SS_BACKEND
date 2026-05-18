@@ -2,8 +2,6 @@ const excelService = require('../services/excel.service');
 const clientExcelService = require('../services/clientExcel.service');
 const { serializeBigInt } = require('../utils/bigintSerializer');
 const fs = require('fs');
-const XLSX = require('xlsx');
-const path = require('path');
 
 async function importProducts(req, res) {
   try {
@@ -70,9 +68,7 @@ async function updateStock(req, res) {
 async function downloadProductsTemplate(req, res) {
   try {
     const workbook = excelService.generateProductsTemplate();
-    
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    
+    const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Disposition', 'attachment; filename=plantilla_productos.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
@@ -84,9 +80,7 @@ async function downloadProductsTemplate(req, res) {
 async function downloadStockTemplate(req, res) {
   try {
     const workbook = excelService.generateStockTemplate();
-    
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    
+    const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Disposition', 'attachment; filename=plantilla_stock.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);

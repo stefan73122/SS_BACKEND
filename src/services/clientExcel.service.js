@@ -1,30 +1,64 @@
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const prisma = require('../prisma/client');
+
+function getCellValue(cell) {
+  const v = cell.value;
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object') {
+    if (v.richText) return v.richText.map(r => r.text).join('');
+    if (v.formula !== undefined) return v.result ?? null;
+    if (v instanceof Date) return v;
+  }
+  return v;
+}
 
 /**
  * Detecta automáticamente en qué fila están los encabezados del Excel.
  * Busca una fila que contenga al menos NOMBRE o SKU/CODIGO.
- * Soporta formato 1: encabezados en fila 1 (range 0)
- * Soporta formato 2: encabezados en fila 6 (range 5) con título en filas 1-5
- * Retorna el range (índice 0-based) a usar en sheet_to_json.
+ * Retorna el número de fila (1-based) donde están los encabezados.
  */
 function detectHeaderRow(worksheet) {
-  const keyColumns = ['NOMBRE', 'nombre', 'SKU', 'sku', 'CODIGO', 'codigo', 'NAME', 'name'];
-  // Escanear filas 0-9 buscando una que tenga columnas clave
-  for (let rowIndex = 0; rowIndex <= 9; rowIndex++) {
-    const rowData = XLSX.utils.sheet_to_json(worksheet, { range: rowIndex, header: 1 });
-    if (rowData.length > 0) {
-      const firstRow = (rowData[0] || []).map(v => String(v || '').trim());
-      const hasKey = keyColumns.some(k => firstRow.includes(k));
-      if (hasKey) {
-        console.log(`[Excel] Encabezados detectados en fila ${rowIndex + 1} (range: ${rowIndex})`);
-        return rowIndex;
-      }
+  const keyColumns = new Set(['NOMBRE', 'nombre', 'SKU', 'sku', 'CODIGO', 'codigo', 'NAME', 'name']);
+  for (let rowIndex = 1; rowIndex <= 10; rowIndex++) {
+    const row = worksheet.getRow(rowIndex);
+    let hasKey = false;
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      if (keyColumns.has(String(getCellValue(cell) || '').trim())) hasKey = true;
+    });
+    if (hasKey) {
+      console.log(`[Excel] Encabezados detectados en fila ${rowIndex}`);
+      return rowIndex;
     }
   }
-  // Fallback: asumir fila 1
   console.warn('[Excel] No se detectaron encabezados, usando fila 1 por defecto');
-  return 0;
+  return 1;
+}
+
+function worksheetToJson(worksheet, headerRowIndex) {
+  const headers = {};
+  const data = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === headerRowIndex) {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const val = getCellValue(cell);
+        if (val != null) headers[colNumber] = String(val).trim();
+      });
+    } else if (rowNumber > headerRowIndex) {
+      const obj = {};
+      let hasData = false;
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        if (headers[colNumber]) {
+          const val = getCellValue(cell);
+          obj[headers[colNumber]] = val;
+          if (val != null && val !== '') hasData = true;
+        }
+      });
+      if (hasData) data.push(obj);
+    }
+  });
+
+  return data;
 }
 
 /**
@@ -33,13 +67,13 @@ function detectHeaderRow(worksheet) {
  */
 async function previewImportFromClientExcel(filePath) {
   try {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
     const headerRange = detectHeaderRow(worksheet);
-    const data = XLSX.utils.sheet_to_json(worksheet, { range: headerRange });
+    const data = worksheetToJson(worksheet, headerRange);
 
-    console.log(`[Preview] Formato detectado: encabezados en fila ${headerRange + 1}, ${data.length} filas de datos`);
+    console.log(`[Preview] Formato detectado: encabezados en fila ${headerRange}, ${data.length} filas de datos`);
 
     const preview = {
       totalProducts: data.length,
@@ -166,13 +200,13 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
   console.log(`[Excel Import] userId resuelto: ${userId}`);
   console.log(`[Excel Import] warehouseId recibido: ${warehouseId}`);
   try {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
+
     const headerRange = detectHeaderRow(worksheet);
-    const data = XLSX.utils.sheet_to_json(worksheet, { range: headerRange });
-    console.log(`[Import] Formato detectado: encabezados en fila ${headerRange + 1}, ${data.length} filas de datos`);
+    const data = worksheetToJson(worksheet, headerRange);
+    console.log(`[Import] Formato detectado: encabezados en fila ${headerRange}, ${data.length} filas de datos`);
 
     const results = {
       success: [],
