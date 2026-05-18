@@ -25,10 +25,12 @@ async function importProductsFromExcel(filePath) {
         description: row.DESCRIPCION || row.description,
         costPrice: row.PRECIO_COSTO || row.costPrice,
         salePrice: row.PRECIO_VENTA || row.salePrice,
-        minStock: row.STOCK_MIN || row.minStock,
+        minStock: row.STOCK_MIN || row['STOCK MIN'] || row.minStock,
         categoryId: row.CATEGORIA || row.categoryId,
         unitId: row.UNIDAD || row.unitId,
-        unitName: row.UNIDAD || row.unitName || row.unitId, // Puede ser nombre o ID
+        unitName: row.UNIDAD || row.unitName || row.unitId,
+        quantity: row.CANTIDAD ?? row.quantity ?? null,
+        warehouseRef: row.ALMACEN ?? row.warehouseId ?? null,
       };
 
       try {
@@ -96,7 +98,7 @@ async function importProductsFromExcel(filePath) {
           description: normalizedRow.description || null,
           costPrice: normalizedRow.costPrice ? parseFloat(normalizedRow.costPrice) : null,
           salePrice: normalizedRow.salePrice ? parseFloat(normalizedRow.salePrice) : null,
-          minStock: normalizedRow.minStock ? parseInt(normalizedRow.minStock) : null,
+          minStockGlobal: normalizedRow.minStock ? parseInt(normalizedRow.minStock) : null,
           unitId: unitId,
           ...(normalizedRow.categoryId && { categoryId: BigInt(normalizedRow.categoryId) }),
         };
@@ -104,6 +106,45 @@ async function importProductsFromExcel(filePath) {
         const product = await prisma.product.create({
           data: productData,
         });
+
+        // Asignar stock inicial si se especificaron CANTIDAD y ALMACEN
+        if (normalizedRow.quantity != null && normalizedRow.warehouseRef != null) {
+          let warehouseId;
+          if (isNaN(normalizedRow.warehouseRef)) {
+            const warehouse = await prisma.warehouse.findFirst({
+              where: { name: { equals: String(normalizedRow.warehouseRef), mode: 'insensitive' } },
+            });
+            if (!warehouse) {
+              results.errors.push({
+                row: rowNumber,
+                error: `Almacén "${normalizedRow.warehouseRef}" no encontrado. El producto fue creado sin stock.`,
+                data: row,
+              });
+            } else {
+              warehouseId = warehouse.id;
+            }
+          } else {
+            warehouseId = BigInt(normalizedRow.warehouseRef);
+          }
+
+          if (warehouseId) {
+            const quantity = parseInt(normalizedRow.quantity);
+            await prisma.stock.create({
+              data: { productId: product.id, warehouseId, quantity },
+            });
+            await prisma.inventoryMovement.create({
+              data: {
+                productId: product.id,
+                warehouseId,
+                type: 'INGRESO',
+                reason: 'COMPRA',
+                quantity,
+                notes: 'Stock inicial desde importación Excel',
+                userId: null,
+              },
+            });
+          }
+        }
 
         results.success.push({
           row: rowNumber,
@@ -271,7 +312,7 @@ function generateProductsTemplate() {
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.aoa_to_sheet([]);
 
-  const numCols = 11;
+  const numCols = 12;
 
   // Fila 1: Título principal
   XLSX.utils.sheet_add_aoa(worksheet, [
@@ -285,12 +326,12 @@ function generateProductsTemplate() {
   XLSX.utils.sheet_add_aoa(worksheet, [
     ['INSTRUCCIONES: Complete los campos requeridos (NOMBRE, SKU). Los datos deben comenzar en la FILA 7.'],
     ['NOMBRE y SKU son obligatorios. UNIDAD es obligatoria (use: PZA, CAJA, MTR, etc.)'],
-    ['CANTIDAD = stock inicial que se asignará al almacén seleccionado al importar.'],
+    ['CANTIDAD + ALMACEN = stock inicial. Puede usar el nombre o ID del almacén. Si se omiten, el producto se crea sin stock.'],
     ['No modifique los encabezados de la fila 6.'],
   ], { origin: 'A2' });
 
   // Fila 6: ENCABEZADOS (range:5 en sheet_to_json empieza desde aquí)
-  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CANTIDAD', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
+  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CANTIDAD', 'ALMACEN', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
   XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A6' });
 
   const headerStyle = {
@@ -305,16 +346,16 @@ function generateProductsTemplate() {
     }
   };
 
-  ['A6','B6','C6','D6','E6','F6','G6','H6','I6','J6','K6'].forEach(cell => {
+  ['A6','B6','C6','D6','E6','F6','G6','H6','I6','J6','K6','L6'].forEach(cell => {
     if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
     worksheet[cell].s = headerStyle;
   });
 
-  // Fila 7+: Datos de ejemplo
+  // Fila 7+: Datos de ejemplo (NOMBRE, SKU, DESC, P_COSTO, P_VENTA, STOCK_MIN, CANTIDAD, ALMACEN, CATEGORIA, UNIDAD, MARCA, PROVEEDOR)
   const exampleData = [
-    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 50, 80, 10, 100, 'REDES', 'PZA', 'AMP', 'Proveedor Ejemplo'],
-    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 1500, 2000, 5, 10, 'REDES', 'PZA', '', ''],
-    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 800, 1200, 3, 5, 'REDES', 'PZA', 'TP-Link', ''],
+    ['Cable UTP Cat6', 'CAB-UTP-CAT6', 'Cable de red categoría 6', 50, 80, 10, 100, 'Almacén Principal', 'REDES', 'PZA', 'AMP', 'Proveedor Ejemplo'],
+    ['Switch 24 puertos', 'SW-24P', 'Switch Gigabit 24 puertos', 1500, 2000, 5, 10, 'Almacén Secundario', 'REDES', 'PZA', '', ''],
+    ['Router WiFi', 'RTR-WIFI-01', 'Router inalámbrico dual band', 800, 1200, 3, 5, 'Almacén Principal', 'REDES', 'PZA', 'TP-Link', ''],
   ];
 
   XLSX.utils.sheet_add_aoa(worksheet, exampleData, { origin: 'A7' });
@@ -330,7 +371,7 @@ function generateProductsTemplate() {
   };
 
   for (let row = 7; row <= 9; row++) {
-    ['A','B','C','D','E','F','G','H','I','J','K'].forEach(col => {
+    ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(col => {
       const cell = col + row;
       if (!worksheet[cell]) worksheet[cell] = { t: 's', v: '' };
       worksheet[cell].s = dataStyle;
@@ -345,6 +386,7 @@ function generateProductsTemplate() {
     { wch: 14 }, // PRECIO_VENTA
     { wch: 12 }, // STOCK_MIN
     { wch: 12 }, // CANTIDAD
+    { wch: 22 }, // ALMACEN
     { wch: 20 }, // CATEGORIA
     { wch: 10 }, // UNIDAD
     { wch: 15 }, // MARCA
@@ -360,7 +402,7 @@ function generateProductsTemplate() {
     { hpt: 28 }, // Fila 6 encabezados
   ];
 
-  worksheet['!autofilter'] = { ref: 'A6:K6' };
+  worksheet['!autofilter'] = { ref: 'A6:L6' };
 
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
 
