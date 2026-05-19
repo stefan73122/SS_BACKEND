@@ -342,6 +342,7 @@ model Warehouse {
   code        String        @unique @db.VarChar(20)
   name        String        @db.VarChar(100)
   description String?       @db.VarChar(255)
+  location    String?       @db.VarChar(255)
   type        WarehouseType @default(PRINCIPAL)
   parentId    BigInt?       @map("parent_id")
   isActive    Boolean       @default(true) @map("is_active")

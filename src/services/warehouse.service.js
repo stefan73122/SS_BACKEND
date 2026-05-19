@@ -56,7 +56,7 @@ async function getWarehouseById(id) {
 }
 
 async function createWarehouse(data) {
-  const { code, name, description, type = 'PRINCIPAL', parentId, isActive = true } = data;
+  const { code, name, description, location, type = 'PRINCIPAL', parentId, isActive = true } = data;
 
   if (!code) {
     throw new Error('El código del almacén es requerido');
@@ -75,6 +75,7 @@ async function createWarehouse(data) {
       code,
       name,
       description,
+      location,
       type,
       ...(parentId && { parentId: BigInt(parentId) }),
       isActive,
@@ -85,7 +86,7 @@ async function createWarehouse(data) {
 }
 
 async function updateWarehouse(id, data) {
-  const { code, name, description, type, parentId, isActive } = data;
+  const { code, name, description, location, type, parentId, isActive } = data;
 
   const existingWarehouse = await prisma.warehouse.findUnique({
     where: { id: BigInt(id) },
@@ -111,6 +112,7 @@ async function updateWarehouse(id, data) {
       ...(code && { code }),
       ...(name && { name }),
       ...(description !== undefined && { description }),
+      ...(location !== undefined && { location }),
       ...(type && { type }),
       ...(parentId !== undefined && { parentId: parentId ? BigInt(parentId) : null }),
       ...(isActive !== undefined && { isActive }),
