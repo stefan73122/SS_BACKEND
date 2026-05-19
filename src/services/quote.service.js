@@ -117,12 +117,11 @@ async function createQuote(data) {
     let itemDiscountPercent = 0;
 
     if (item.discount && item.discount > 0) {
-      // Si el descuento es mayor que 100, asumimos que es un monto en Bs, no un porcentaje
-      // Ejemplo: producto de 63.76 Bs con descuento de 5.9 Bs = (5.9 / 63.76) * 100 = 9.25%
-      if (item.discount > 100 || (item.discount > 1 && item.discount < item.unitPrice)) {
+      if (item.discount > 100) {
+        // Monto en Bs absoluto (imposible como porcentaje)
         itemDiscountPercent = (item.discount / item.unitPrice) * 100;
       } else {
-        // Si es menor o igual a 100, asumimos que ya es un porcentaje
+        // Porcentaje 0–100
         itemDiscountPercent = item.discount;
       }
     }
@@ -239,12 +238,11 @@ async function updateQuote(id, data) {
       let itemDiscountPercent = 0;
       
       if (item.discount && item.discount > 0) {
-        // Si el descuento es mayor que 100, asumimos que es un monto en Bs, no un porcentaje
-        // Ejemplo: producto de 63.76 Bs con descuento de 5.9 Bs = (5.9 / 63.76) * 100 = 9.25%
-        if (item.discount > 100 || (item.discount > 1 && item.discount < item.unitPrice)) {
+        if (item.discount > 100) {
+          // Monto en Bs absoluto (imposible como porcentaje)
           itemDiscountPercent = (item.discount / item.unitPrice) * 100;
         } else {
-          // Si es menor o igual a 100, asumimos que ya es un porcentaje
+          // Porcentaje 0–100
           itemDiscountPercent = item.discount;
         }
       }
