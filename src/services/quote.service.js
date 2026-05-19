@@ -133,6 +133,7 @@ async function createQuote(data) {
     itemsData.push({
       productId: item.productId ? BigInt(item.productId) : null,
       itemType: item.itemType || 'PRODUCT',
+      serviceCode: item.sku || item.serviceCode || null,
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -254,6 +255,7 @@ async function updateQuote(id, data) {
       itemsData.push({
         productId: item.productId ? BigInt(item.productId) : null,
         itemType: item.itemType || 'PRODUCT',
+        serviceCode: item.sku || item.serviceCode || null,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -551,7 +553,7 @@ async function getQuoteReceipt(id) {
         : 'Sistema',
       items: normalized.items.map(item => ({
         description: item.description || item.product?.name || '',
-        sku: item.product?.sku || '',
+        sku: item.product?.sku || item.serviceCode || '',
         quantity: parseFloat(item.quantity),
         unitPrice: parseFloat(item.unitPrice),
         discount: parseFloat(item.discount || 0),

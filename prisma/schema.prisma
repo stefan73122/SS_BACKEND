@@ -501,6 +501,7 @@ model QuoteItem {
   itemType      QuoteItemType @default(PRODUCT) @map("item_type")
   productId     BigInt?       @map("product_id")
   kitId         BigInt?       @map("kit_id")
+  serviceCode   String?       @db.VarChar(100) @map("service_code")
   description   String?
   quantity      Decimal       @db.Decimal(14, 2)
   unitPrice     Decimal       @map("unit_price") @db.Decimal(14, 4)
