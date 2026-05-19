@@ -1,0 +1,7 @@
+◇ injected env (4) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+🔄 Ejecutando migraciones de base de datos...
+✅ Migraciones completadas
+✅ Triggers legacy eliminados
+🌱 Ejecutando seeder...
+✅ Seeder completado
+Servidor escuchando en puerto 3001
