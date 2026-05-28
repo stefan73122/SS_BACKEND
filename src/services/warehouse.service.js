@@ -159,7 +159,10 @@ async function getWarehouseStock(id) {
   }
 
   const stocks = await prisma.warehouseStock.findMany({
-    where: { warehouseId: BigInt(id) },
+    where: {
+      warehouseId: BigInt(id),
+      product: { isActive: true },
+    },
     include: {
       product: true,
     },

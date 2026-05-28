@@ -204,6 +204,7 @@ async function getInventory({ page = 1, limit = 10, search = '', categoryId = nu
   const skip = (pageNum - 1) * limitNum;
 
   const where = {
+    isActive: true,
     ...(search && {
       OR: [
         { sku: { contains: search, mode: 'insensitive' } },
@@ -211,7 +212,6 @@ async function getInventory({ page = 1, limit = 10, search = '', categoryId = nu
       ],
     }),
     ...(categoryId && { categoryId: BigInt(categoryId) }),
-    // Filtrar solo productos que tengan stock en el almacén indicado
     ...(warehouseId && {
       warehouseStocks: { some: { warehouseId: BigInt(warehouseId) } },
     }),
