@@ -5,3 +5,67 @@
 🌱 Ejecutando seeder...
 ✅ Seeder completado
 Servidor escuchando en puerto 3001
+[Import Controller] warehouseId recibido: undefined
+[Excel Import] Conexión a base de datos establecida
+[Excel Import] userId resuelto: 1
+[Excel Import] warehouseId recibido: undefined
+[Excel] Encabezados detectados en fila 2
+[Import] Formato detectado: encabezados en fila 2, 5 filas de datos
+=== DEBUG IMPORTACIÓN ===
+Total de filas: 5
+Columnas detectadas: [
+  'CODIGO SS',
+  'CODIGO \nFABRICANTE',
+  'SKU',
+  'NOMBRE',
+  'PROVEEDOR',
+  'CATEGORIA',
+  'MARCA',
+  'PROCEDENCIA',
+  'UNIDAD',
+  'ALMACEN',
+  'DESCRIPCION',
+  'PRECIO_COSTO',
+  'CANTIDAD',
+  'PRECIO_VENTA',
+  'STOCK MIN'
+]
+Primer registro completo: {
+  "CODIGO SS": "SS010",
+  "CODIGO \nFABRICANTE": "TFL0LN0043",
+  "SKU": "3LIA001",
+  "NOMBRE": "LIJA DE AGUA #320",
+  "PROVEEDOR": "MERCANTIL LEON SRL",
+  "CATEGORIA": "INSUMO",
+  "MARCA": "ALCAR",
+  "PROCEDENCIA": "BRASIL",
+  "UNIDAD": "PZA",
+  "ALMACEN": "LA PAZ",
+  "DESCRIPCION": "Lija de agua L-420 grano 320: hoja abrasiva para acabado fino en superficies húmedas o secas.",
+  "PRECIO_COSTO": 83.13,
+  "CANTIDAD": 14,
+  "PRECIO_VENTA": 17.75,
+  "STOCK MIN": 10
+}
+========================
+=== DATOS PRIMERA FILA ===
+codigo: 3LIA001
+nombre: LIJA DE AGUA #320
+proveedor: MERCANTIL LEON SRL
+grupo: INSUMO
+marca: ALCAR
+procedencia: BRASIL
+und: PZA
+almacen: LA PAZ
+precioCompra: 83.13
+precioVenta: 17.75
+cantidad: 14
+codigoFabricante: undefined
+codigoSS: SS010
+========================
+[Excel Import] Almacén "LA PAZ": ID 1
+[Excel Import] Almacén "LA PAZ": ID 1
+[Excel Import] Almacén "LA PAZ": ID 1
+[Excel Import] Almacén "LA PAZ": ID 1
+[Excel Import] Almacén "LA PAZ": ID 1
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "Se ha forzado la interrupción de una conexión existente por el host remoto." }) }
