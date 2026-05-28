@@ -132,7 +132,10 @@ async function deleteWarehouse(id) {
   }
 
   const hasStock = await prisma.warehouseStock.findFirst({
-    where: { warehouseId: BigInt(id) },
+    where: {
+      warehouseId: BigInt(id),
+      product: { isActive: true },
+    },
   });
 
   if (hasStock) {
