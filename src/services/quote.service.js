@@ -7,6 +7,7 @@ function normalizeQuote(quote) {
     ...quote,
     total: quote.grandTotal,
     discount: quote.discountTotal,
+    warehouseId: quote.warehouseId ? Number(quote.warehouseId) : null,
     items: (quote.items || []).map(item => ({
       ...item,
       total: item.lineTotal,
@@ -88,13 +89,16 @@ async function getQuoteById(id) {
       items: {
         include: {
           product: true,
+          hiddenCosts: true,
+          stockChecks: true,
         },
       },
       paymentTerms: {
         orderBy: { installmentNumber: 'asc' },
       },
-      hiddenCosts: true,
-      stockCheck: true,
+      warehouse: {
+        select: { id: true, code: true, name: true },
+      },
     },
   });
 
@@ -200,7 +204,7 @@ async function createQuote(data) {
 }
 
 async function updateQuote(id, data) {
-  const { status, quoteType, paymentType, validUntil, notes, discount, items, userId, warehouseId } = data;
+  const { status, quoteType, paymentType, validUntil, notes, observations, discount, items, userId, warehouseId } = data;
 
   // Obtener cotización actual para verificar cambio de estado
   const currentQuote = await prisma.quote.findUnique({
@@ -218,12 +222,16 @@ async function updateQuote(id, data) {
     throw new Error('Cotización no encontrada');
   }
 
+  // Observations: acepta tanto 'observations' directo como 'notes' (alias)
+  const observationsValue = observations !== undefined ? observations : (notes !== undefined ? notes : undefined);
+
   let updateData = {
     ...(status && { status }),
     ...(quoteType && { quoteType }),
     ...(paymentType && { paymentType }),
     ...(validUntil && { validUntil: new Date(validUntil) }),
-    ...(notes !== undefined && { observations: notes }),
+    ...(observationsValue !== undefined && { observations: observationsValue }),
+    ...(warehouseId && { warehouseId: BigInt(warehouseId) }),
   };
 
   if (items && items.length > 0) {
@@ -281,7 +289,11 @@ async function updateQuote(id, data) {
       items: {
         include: {
           product: true,
+          hiddenCosts: true,
         },
+      },
+      warehouse: {
+        select: { id: true, code: true, name: true },
       },
     },
   });

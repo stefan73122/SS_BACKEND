@@ -357,6 +357,7 @@ model Warehouse {
   movementsTo            InventoryMovement[]    @relation("MovementTo")
   stockChecks            QuoteItemStockCheck[]
   serviceOrderMaterials  ServiceOrderMaterial[]
+  quotes                 Quote[]
 
   @@index([parentId], map: "idx_warehouses_parent")
   @@map("warehouses")
@@ -478,11 +479,13 @@ model Quote {
   termsConditions       String?     @map("terms_conditions")
   observations          String?
   pdfPath               String?     @map("pdf_path") @db.VarChar(255)
+  warehouseId           BigInt?     @map("warehouse_id")
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime?   @updatedAt @map("updated_at")
 
-  client  Client @relation(fields: [clientId], references: [id])
-  creator User   @relation(fields: [createdBy], references: [id])
+  client    Client     @relation(fields: [clientId], references: [id])
+  creator   User       @relation(fields: [createdBy], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
 
   items         QuoteItem[]
   paymentTerms  QuotePaymentTerm[]
