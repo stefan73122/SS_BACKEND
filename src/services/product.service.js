@@ -6,6 +6,7 @@ async function getAllProducts({ page = 1, limit = 10, search = '', categoryId = 
   const skip = (pageNum - 1) * limitNum;
   
   const where = {
+    isActive: true,
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -199,11 +200,21 @@ async function updateProduct(id, data) {
 }
 
 async function deleteProduct(id) {
-  await prisma.product.delete({
+  const product = await prisma.product.findUnique({
     where: { id: BigInt(id) },
+    select: { id: true },
   });
 
-  return { message: 'Producto eliminado exitosamente' };
+  if (!product) {
+    throw new Error('Producto no encontrado');
+  }
+
+  await prisma.product.update({
+    where: { id: BigInt(id) },
+    data: { isActive: false },
+  });
+
+  return { message: 'Producto desactivado exitosamente' };
 }
 
 async function getProductStock(id) {
