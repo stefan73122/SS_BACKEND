@@ -121,19 +121,10 @@ async function updateCategory(id, data) {
 async function deleteCategory(id) {
   const category = await prisma.productCategory.findUnique({
     where: { id: BigInt(id) },
-    include: {
-      _count: {
-        select: { products: true },
-      },
-    },
   });
 
   if (!category) {
     throw new Error('Categoría no encontrada');
-  }
-
-  if (category._count.products > 0) {
-    throw new Error(`No se puede eliminar la categoría porque tiene ${category._count.products} producto(s) asociado(s)`);
   }
 
   await prisma.productCategory.delete({
