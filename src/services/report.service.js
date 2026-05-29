@@ -162,16 +162,22 @@ async function getEmployeeReport({ userId, startDate, endDate }) {
 
 // ─── REPORTE DE MOVIMIENTOS DE INVENTARIO ────────────────────────────────────
 
-async function getInventoryMovementsReport({ startDate, endDate, warehouseId, type, page = 1, limit = 10 }) {
+async function getInventoryMovementsReport({ startDate, endDate, warehouseId, userId, type, page = 1, limit = 10 }) {
   const pageNum = parseInt(page) || 1;
   const limitNum = parseInt(limit) || 10;
   const skip = (pageNum - 1) * limitNum;
 
   const where = {
-    ...(warehouseId && { warehouseId: BigInt(warehouseId) }),
     ...(type && { type }),
+    ...(userId && { createdBy: BigInt(userId) }),
+    ...(warehouseId && {
+      OR: [
+        { warehouseFromId: BigInt(warehouseId) },
+        { warehouseToId: BigInt(warehouseId) },
+      ],
+    }),
     ...(startDate || endDate ? {
-      createdAt: {
+      movementDate: {
         ...(startDate && { gte: new Date(startDate) }),
         ...(endDate && { lte: new Date(endDate) }),
       },
@@ -186,12 +192,12 @@ async function getInventoryMovementsReport({ startDate, endDate, warehouseId, ty
       include: {
         warehouseFrom: { select: { code: true, name: true } },
         warehouseTo: { select: { code: true, name: true } },
-        creator: { select: { id: true, username: true, fullName: true } },
+        creator: { select: { id: true, username: true, fullName: true, warehouse: { select: { code: true, name: true } } } },
         items: { include: { product: { select: { sku: true, name: true, category: { select: { name: true } } } } } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { movementDate: 'desc' },
     }),
-    prisma.inventoryMovement.count({ where: { ...where, createdAt: where.createdAt } }),
+    prisma.inventoryMovement.count({ where }),
   ]);
 
   // Resumen por tipo

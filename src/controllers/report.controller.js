@@ -23,8 +23,8 @@ async function getEmployeeReport(req, res) {
 
 async function getInventoryMovementsReport(req, res) {
   try {
-    const { startDate, endDate, warehouseId, type, page, limit } = req.query;
-    const result = await reportService.getInventoryMovementsReport({ startDate, endDate, warehouseId, type, page, limit });
+    const { startDate, endDate, warehouseId, userId, type, page, limit } = req.query;
+    const result = await reportService.getInventoryMovementsReport({ startDate, endDate, warehouseId, userId, type, page, limit });
     res.json(serializeBigInt(result));
   } catch (error) {
     res.status(500).json({ error: error.message });
