@@ -381,6 +381,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           ...(categoryId && { categoryId }),
           ...(unitId && { unitId }),
           ...(supplierId && { supplierId }),
+          ...(userId ? { createdBy: BigInt(userId) } : {}),
         };
 
         // Verificar si el producto ya existe
@@ -482,7 +483,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
             stockSaved = true;
             stockQty = finalQty;
 
-            if (userId && finalQty > 0) {
+            if (finalQty > 0) {
               const isNew = action === 'created';
               try {
                 await prisma.inventoryMovement.create({

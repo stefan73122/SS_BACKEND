@@ -106,6 +106,8 @@ async function createProduct(data, userId = null) {
   const brand = data.brand || data.marca || undefined;
   const origin = data.origin || data.origen || undefined;
   const manufacturerCode = data.manufacturerCode || data.manufacturer_code || data.codigoFabricante || data.codigo_fabricante || undefined;
+  const initialQuantity = data.quantity != null ? parseFloat(data.quantity) : null;
+  const initialWarehouseId = data.warehouseId || null;
 
   if (!unitId) {
     throw new Error('La unidad es obligatoria para crear un producto');
@@ -140,6 +142,40 @@ async function createProduct(data, userId = null) {
       unit: true,
     },
   });
+
+  // Si viene stock inicial con almacén, crear WarehouseStock + movimiento INGRESO
+  if (initialWarehouseId && initialQuantity != null && initialQuantity > 0) {
+    const whId = BigInt(initialWarehouseId);
+    const createdByBig = userId ? BigInt(userId) : BigInt(1);
+    await prisma.$transaction(async (tx) => {
+      await tx.warehouseStock.upsert({
+        where: { warehouseId_productId: { warehouseId: whId, productId: product.id } },
+        create: { productId: product.id, warehouseId: whId, quantity: initialQuantity },
+        update: { quantity: { increment: initialQuantity } },
+      });
+      await tx.inventoryMovement.create({
+        data: {
+          type: 'INGRESO',
+          reason: 'COMPRA',
+          note: 'Stock inicial al crear producto',
+          createdBy: createdByBig,
+          warehouseToId: whId,
+          items: { create: { productId: product.id, quantity: initialQuantity } },
+        },
+      });
+    });
+  }
+
+  // Registrar en AuditLog
+  await prisma.auditLog.create({
+    data: {
+      userId: userId ? BigInt(userId) : null,
+      action: 'CREATE',
+      entityType: 'Product',
+      entityId: product.id,
+      newValues: JSON.stringify({ sku: product.sku, name: product.name }),
+    },
+  }).catch(() => {});
 
   return product;
 }
@@ -203,20 +239,60 @@ async function updateProduct(id, data) {
 async function deleteProduct(id, userId = null) {
   const product = await prisma.product.findUnique({
     where: { id: BigInt(id) },
-    select: { id: true },
+    include: {
+      warehouseStocks: {
+        where: { quantity: { gt: 0 } },
+        include: { warehouse: { select: { id: true, name: true } } },
+      },
+    },
   });
 
   if (!product) {
     throw new Error('Producto no encontrado');
   }
 
-  await prisma.product.update({
-    where: { id: BigInt(id) },
-    data: {
-      isActive: false,
-      deletedAt: new Date(),
-      ...(userId ? { deletedBy: BigInt(userId) } : {}),
-    },
+  const deletedAt = new Date();
+  const createdByBig = userId ? BigInt(userId) : BigInt(1);
+
+  await prisma.$transaction(async (tx) => {
+    // Soft delete del producto
+    await tx.product.update({
+      where: { id: BigInt(id) },
+      data: {
+        isActive: false,
+        deletedAt,
+        ...(userId ? { deletedBy: BigInt(userId) } : {}),
+      },
+    });
+
+    // Crear movimiento EGRESO por cada almacén con stock
+    for (const stock of product.warehouseStocks) {
+      const qty = parseFloat(stock.quantity);
+      if (qty > 0) {
+        await tx.inventoryMovement.create({
+          data: {
+            type: 'EGRESO',
+            reason: 'AJUSTE_MANUAL',
+            note: `Baja de producto: ${product.name} (SKU: ${product.sku})`,
+            createdBy: createdByBig,
+            warehouseFromId: stock.warehouseId,
+            items: { create: { productId: product.id, quantity: qty } },
+          },
+        });
+      }
+    }
+
+    // Registrar en AuditLog
+    await tx.auditLog.create({
+      data: {
+        userId: userId ? BigInt(userId) : null,
+        action: 'DELETE',
+        entityType: 'Product',
+        entityId: product.id,
+        oldValues: JSON.stringify({ sku: product.sku, name: product.name, isActive: true }),
+        newValues: JSON.stringify({ isActive: false, deletedAt }),
+      },
+    });
   });
 
   return { message: 'Producto desactivado exitosamente' };
