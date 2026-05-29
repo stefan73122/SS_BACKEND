@@ -2,6 +2,12 @@ const prisma = require('../prisma/client');
 
 // ─── REPORTE DE VENTAS (COTIZACIONES) ────────────────────────────────────────
 
+function endOfDay(dateStr) {
+  const d = new Date(dateStr);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
+
 async function getSalesReport({ startDate, endDate, userId, status, page = 1, limit = 10 }) {
   const pageNum = parseInt(page) || 1;
   const limitNum = parseInt(limit) || 10;
@@ -13,7 +19,7 @@ async function getSalesReport({ startDate, endDate, userId, status, page = 1, li
     ...(startDate || endDate ? {
       createdAt: {
         ...(startDate && { gte: new Date(startDate) }),
-        ...(endDate && { lte: new Date(endDate) }),
+        ...(endDate && { lte: endOfDay(endDate) }),
       },
     } : {}),
   };
@@ -66,7 +72,7 @@ async function getEmployeeReport({ userId, startDate, endDate }) {
   const dateFilter = startDate || endDate ? {
     createdAt: {
       ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
+      ...(endDate && { lte: endOfDay(endDate) }),
     },
   } : {};
 
@@ -179,7 +185,7 @@ async function getInventoryMovementsReport({ startDate, endDate, warehouseId, us
     ...(startDate || endDate ? {
       movementDate: {
         ...(startDate && { gte: new Date(startDate) }),
-        ...(endDate && { lte: new Date(endDate) }),
+        ...(endDate && { lte: endOfDay(endDate) }),
       },
     } : {}),
   };
@@ -227,7 +233,7 @@ async function getGeneralReport({ startDate, endDate }) {
   const dateFilter = startDate || endDate ? {
     createdAt: {
       ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
+      ...(endDate && { lte: endOfDay(endDate) }),
     },
   } : {};
 
@@ -337,7 +343,7 @@ async function getProductActivityReport({ startDate, endDate, warehouseId, userI
   const skip = (pageNum - 1) * limitNum;
 
   const dateGte = startDate ? new Date(startDate) : undefined;
-  const dateLte = endDate ? new Date(endDate) : undefined;
+  const dateLte = endDate ? endOfDay(endDate) : undefined;
 
   // Productos creados
   const createdWhere = {
@@ -442,7 +448,7 @@ async function getProductsByWarehouseReport({ warehouseId, startDate, endDate, u
   const skip = (pageNum - 1) * limitNum;
 
   const dateGte = startDate ? new Date(startDate) : undefined;
-  const dateLte = endDate ? new Date(endDate) : undefined;
+  const dateLte = endDate ? endOfDay(endDate) : undefined;
 
   const where = {
     type: 'INGRESO',
