@@ -323,9 +323,160 @@ async function getGeneralReport({ startDate, endDate }) {
   };
 }
 
+// ─── REPORTE DE ACTIVIDAD DE PRODUCTOS (ALTAS Y BAJAS) ───────────────────────
+
+async function getProductActivityReport({ startDate, endDate, warehouseId, userId, action, page = 1, limit = 50 }) {
+  const pageNum = parseInt(page) || 1;
+  const limitNum = parseInt(limit) || 50;
+  const skip = (pageNum - 1) * limitNum;
+
+  const dateGte = startDate ? new Date(startDate) : undefined;
+  const dateLte = endDate ? new Date(endDate) : undefined;
+
+  // Productos creados
+  const createdWhere = {
+    ...(userId && { createdBy: BigInt(userId) }),
+    ...(dateGte || dateLte ? { createdAt: { ...(dateGte && { gte: dateGte }), ...(dateLte && { lte: dateLte }) } } : {}),
+    ...(warehouseId ? { warehouseStocks: { some: { warehouseId: BigInt(warehouseId) } } } : {}),
+  };
+
+  // Productos eliminados (soft delete)
+  const deletedWhere = {
+    isActive: false,
+    deletedAt: { not: null },
+    ...(userId && { deletedBy: BigInt(userId) }),
+    ...(dateGte || dateLte ? { deletedAt: { ...(dateGte && { gte: dateGte }), ...(dateLte && { lte: dateLte }) } } : {}),
+    ...(warehouseId ? { warehouseStocks: { some: { warehouseId: BigInt(warehouseId) } } } : {}),
+  };
+
+  const productSelect = {
+    id: true,
+    sku: true,
+    name: true,
+    brand: true,
+    isActive: true,
+    createdAt: true,
+    deletedAt: true,
+    category: { select: { name: true } },
+    unit: { select: { name: true, code: true } },
+    creator: { select: { id: true, username: true, fullName: true } },
+    deleter: { select: { id: true, username: true, fullName: true } },
+    warehouseStocks: {
+      include: { warehouse: { select: { id: true, code: true, name: true } } },
+    },
+  };
+
+  let created = [], deleted = [], totalCreated = 0, totalDeleted = 0;
+
+  if (!action || action === 'CREATE') {
+    [created, totalCreated] = await Promise.all([
+      prisma.product.findMany({ where: createdWhere, select: productSelect, orderBy: { createdAt: 'desc' }, skip: action ? skip : 0, take: action ? limitNum : undefined }),
+      prisma.product.count({ where: createdWhere }),
+    ]);
+  }
+
+  if (!action || action === 'DELETE') {
+    [deleted, totalDeleted] = await Promise.all([
+      prisma.product.findMany({ where: deletedWhere, select: productSelect, orderBy: { deletedAt: 'desc' }, skip: action ? skip : 0, take: action ? limitNum : undefined }),
+      prisma.product.count({ where: deletedWhere }),
+    ]);
+  }
+
+  const createdMapped = created.map(p => ({ ...p, action: 'CREATE', actionDate: p.createdAt, actionBy: p.creator }));
+  const deletedMapped = deleted.map(p => ({ ...p, action: 'DELETE', actionDate: p.deletedAt, actionBy: p.deleter }));
+
+  let combined = [...createdMapped, ...deletedMapped].sort((a, b) => new Date(b.actionDate) - new Date(a.actionDate));
+
+  if (!action) {
+    const total = combined.length;
+    combined = combined.slice(skip, skip + limitNum);
+    return {
+      activity: combined,
+      pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+      summary: { totalCreated, totalDeleted },
+    };
+  }
+
+  const total = action === 'CREATE' ? totalCreated : totalDeleted;
+  return {
+    activity: combined,
+    pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+    summary: { totalCreated, totalDeleted },
+  };
+}
+
+// ─── REPORTE DE PRODUCTOS POR ALMACÉN Y USUARIO ──────────────────────────────
+
+async function getProductsByWarehouseReport({ warehouseId, startDate, endDate, userId, page = 1, limit = 50 }) {
+  const pageNum = parseInt(page) || 1;
+  const limitNum = parseInt(limit) || 50;
+  const skip = (pageNum - 1) * limitNum;
+
+  const dateGte = startDate ? new Date(startDate) : undefined;
+  const dateLte = endDate ? new Date(endDate) : undefined;
+
+  const where = {
+    type: 'INGRESO',
+    ...(warehouseId && { warehouseToId: BigInt(warehouseId) }),
+    ...(userId && { createdBy: BigInt(userId) }),
+    ...(dateGte || dateLte ? { movementDate: { ...(dateGte && { gte: dateGte }), ...(dateLte && { lte: dateLte }) } } : {}),
+  };
+
+  const [movements, total] = await Promise.all([
+    prisma.inventoryMovement.findMany({
+      where,
+      skip,
+      take: limitNum,
+      include: {
+        warehouseTo: { select: { id: true, code: true, name: true } },
+        creator: { select: { id: true, username: true, fullName: true } },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true, sku: true, name: true, brand: true,
+                category: { select: { name: true } },
+                unit: { select: { name: true, code: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { movementDate: 'desc' },
+    }),
+    prisma.inventoryMovement.count({ where }),
+  ]);
+
+  // Agrupar totales por almacén
+  const byWarehouse = await prisma.inventoryMovement.groupBy({
+    by: ['warehouseToId'],
+    where,
+    _count: true,
+  });
+
+  const warehouseIds = byWarehouse.map(w => w.warehouseToId).filter(Boolean);
+  const warehouses = warehouseIds.length > 0
+    ? await prisma.warehouse.findMany({ where: { id: { in: warehouseIds } }, select: { id: true, code: true, name: true } })
+    : [];
+  const warehouseMap = Object.fromEntries(warehouses.map(w => [w.id.toString(), w]));
+
+  const byWarehouseSummary = byWarehouse.map(w => ({
+    warehouse: w.warehouseToId ? warehouseMap[w.warehouseToId.toString()] : null,
+    totalMovements: w._count,
+  }));
+
+  return {
+    movements,
+    pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+    summary: { totalMovements: total, byWarehouse: byWarehouseSummary },
+  };
+}
+
 module.exports = {
   getSalesReport,
   getEmployeeReport,
   getInventoryMovementsReport,
   getGeneralReport,
+  getProductActivityReport,
+  getProductsByWarehouseReport,
 };

@@ -89,9 +89,73 @@ async function downloadStockTemplate(req, res) {
   }
 }
 
+async function exportProductsByWarehouse(req, res) {
+  try {
+    const { warehouseId, startDate, endDate } = req.query;
+    const workbook = await excelService.exportProductsByWarehouse({ warehouseId, startDate, endDate });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `productos_por_almacen_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function exportProductsBySeller(req, res) {
+  try {
+    const { userId, startDate, endDate } = req.query;
+    const workbook = await excelService.exportProductsBySeller({ userId, startDate, endDate });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `productos_por_vendedor_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function exportProductActivity(req, res) {
+  try {
+    const { startDate, endDate, warehouseId, userId } = req.query;
+    const workbook = await excelService.exportProductActivity({ startDate, endDate, warehouseId, userId });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `actividad_productos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function exportProductsGeneral(req, res) {
+  try {
+    const { startDate, endDate, includeInactive } = req.query;
+    const workbook = await excelService.exportProductsGeneral({
+      startDate,
+      endDate,
+      includeInactive: includeInactive === 'true',
+    });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `productos_general_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   importProducts,
   updateStock,
   downloadProductsTemplate,
   downloadStockTemplate,
+  exportProductsByWarehouse,
+  exportProductsBySeller,
+  exportProductActivity,
+  exportProductsGeneral,
 };

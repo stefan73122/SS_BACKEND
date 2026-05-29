@@ -101,7 +101,7 @@ async function getProductById(id) {
   };
 }
 
-async function createProduct(data) {
+async function createProduct(data, userId = null) {
   const { name, sku, description, categoryId, unitId, costPrice, salePrice, minStock, supplierId } = data;
   const brand = data.brand || data.marca || undefined;
   const origin = data.origin || data.origen || undefined;
@@ -133,6 +133,7 @@ async function createProduct(data) {
       ...(origin !== undefined && { origin }),
       ...(manufacturerCode !== undefined && { manufacturerCode }),
       ...(supplierId ? { supplierId: BigInt(supplierId) } : {}),
+      ...(userId ? { createdBy: BigInt(userId) } : {}),
     },
     include: {
       category: true,
@@ -199,7 +200,7 @@ async function updateProduct(id, data) {
   };
 }
 
-async function deleteProduct(id) {
+async function deleteProduct(id, userId = null) {
   const product = await prisma.product.findUnique({
     where: { id: BigInt(id) },
     select: { id: true },
@@ -211,7 +212,11 @@ async function deleteProduct(id) {
 
   await prisma.product.update({
     where: { id: BigInt(id) },
-    data: { isActive: false },
+    data: {
+      isActive: false,
+      deletedAt: new Date(),
+      ...(userId ? { deletedBy: BigInt(userId) } : {}),
+    },
   });
 
   return { message: 'Producto desactivado exitosamente' };

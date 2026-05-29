@@ -176,6 +176,8 @@ model User {
   auditLogs             AuditLog[]
   reportsLogs           ReportsLog[]
   notifications         Notification[]
+  productsCreated       Product[]      @relation("ProductCreatedBy")
+  productsDeleted       Product[]      @relation("ProductDeletedBy")
 
   @@map("users")
 }
@@ -317,12 +319,17 @@ model Product {
   isService         Boolean   @default(false) @map("is_service")
   isActive          Boolean   @default(true) @map("is_active")
   minStockGlobal    Decimal?  @default(0) @map("min_stock_global") @db.Decimal(14, 2)
+  createdBy         BigInt?   @map("created_by")
+  deletedBy         BigInt?   @map("deleted_by")
+  deletedAt         DateTime? @map("deleted_at")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime? @updatedAt @map("updated_at")
 
   category               ProductCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   supplier               Supplier?                @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   unit                   Unit                     @relation(fields: [unitId], references: [id])
+  creator                User?                    @relation("ProductCreatedBy", fields: [createdBy], references: [id])
+  deleter                User?                    @relation("ProductDeletedBy", fields: [deletedBy], references: [id])
   warehouseStocks        WarehouseStock[]
   inventoryMovementItems InventoryMovementItem[]
   kitItems               KitItem[]
@@ -332,6 +339,7 @@ model Product {
 
   @@index([categoryId], map: "idx_products_category")
   @@index([sku], map: "idx_products_sku")
+  @@index([createdBy], map: "idx_products_created_by")
   @@map("products")
 }
 

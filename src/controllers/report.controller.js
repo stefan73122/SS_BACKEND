@@ -41,9 +41,31 @@ async function getGeneralReport(req, res) {
   }
 }
 
+async function getProductActivityReport(req, res) {
+  try {
+    const { startDate, endDate, warehouseId, userId, action, page, limit } = req.query;
+    const result = await reportService.getProductActivityReport({ startDate, endDate, warehouseId, userId, action, page, limit });
+    res.json(serializeBigInt(result));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function getProductsByWarehouseReport(req, res) {
+  try {
+    const { warehouseId, startDate, endDate, userId, page, limit } = req.query;
+    const result = await reportService.getProductsByWarehouseReport({ warehouseId, startDate, endDate, userId, page, limit });
+    res.json(serializeBigInt(result));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   getSalesReport,
   getEmployeeReport,
   getInventoryMovementsReport,
   getGeneralReport,
+  getProductActivityReport,
+  getProductsByWarehouseReport,
 };

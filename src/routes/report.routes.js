@@ -12,5 +12,7 @@ router.get('/general', reportController.getGeneralReport);
 router.get('/sales', reportController.getSalesReport);
 router.get('/employees', reportController.getEmployeeReport);
 router.get('/inventory', reportController.getInventoryMovementsReport);
+router.get('/product-activity', reportController.getProductActivityReport);
+router.get('/products-by-warehouse', reportController.getProductsByWarehouseReport);
 
 module.exports = router;

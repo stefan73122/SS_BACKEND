@@ -26,5 +26,9 @@ router.post('/import-products-client', optionalAuth, upload.single('file'), clie
 router.post('/update-stock', optionalAuth, upload.single('file'), excelController.updateStock);
 router.get('/templates/products', excelController.downloadProductsTemplate);
 router.get('/templates/stock', excelController.downloadStockTemplate);
+router.get('/export/products-by-warehouse', optionalAuth, excelController.exportProductsByWarehouse);
+router.get('/export/products-by-seller', optionalAuth, excelController.exportProductsBySeller);
+router.get('/export/product-activity', optionalAuth, excelController.exportProductActivity);
+router.get('/export/products-general', optionalAuth, excelController.exportProductsGeneral);
 
 module.exports = router;

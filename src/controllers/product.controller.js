@@ -23,7 +23,8 @@ async function getById(req, res) {
 
 async function create(req, res) {
   try {
-    const product = await productService.createProduct(req.body);
+    const userId = req.user?.id || req.user?.userId;
+    const product = await productService.createProduct(req.body, userId);
     res.status(201).json(serializeBigInt(product));
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -43,7 +44,8 @@ async function update(req, res) {
 async function remove(req, res) {
   try {
     const { id } = req.params;
-    const result = await productService.deleteProduct(id);
+    const userId = req.user?.id || req.user?.userId;
+    const result = await productService.deleteProduct(id, userId);
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
