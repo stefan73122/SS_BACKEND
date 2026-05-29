@@ -349,6 +349,13 @@ async function getProductActivityReport({ startDate, endDate, warehouseId, userI
     ...(warehouseId ? { warehouseStocks: { some: { warehouseId: BigInt(warehouseId) } } } : {}),
   };
 
+  const userSelect = {
+    id: true,
+    username: true,
+    fullName: true,
+    warehouse: { select: { id: true, code: true, name: true } },
+  };
+
   const productSelect = {
     id: true,
     sku: true,
@@ -359,8 +366,8 @@ async function getProductActivityReport({ startDate, endDate, warehouseId, userI
     deletedAt: true,
     category: { select: { name: true } },
     unit: { select: { name: true, code: true } },
-    creator: { select: { id: true, username: true, fullName: true } },
-    deleter: { select: { id: true, username: true, fullName: true } },
+    creator: { select: userSelect },
+    deleter: { select: userSelect },
     warehouseStocks: {
       include: { warehouse: { select: { id: true, code: true, name: true } } },
     },
@@ -382,8 +389,24 @@ async function getProductActivityReport({ startDate, endDate, warehouseId, userI
     ]);
   }
 
-  const createdMapped = created.map(p => ({ ...p, action: 'CREATE', actionDate: p.createdAt, actionBy: p.creator }));
-  const deletedMapped = deleted.map(p => ({ ...p, action: 'DELETE', actionDate: p.deletedAt, actionBy: p.deleter }));
+  const createdMapped = created.map(p => ({
+    ...p,
+    action: 'CREATE',
+    actionDate: p.createdAt,
+    actionBy: p.creator
+      ? { ...p.creator, warehouseName: p.creator.warehouse?.name || null, warehouseCode: p.creator.warehouse?.code || null }
+      : null,
+    actionWarehouse: p.creator?.warehouse || null,
+  }));
+  const deletedMapped = deleted.map(p => ({
+    ...p,
+    action: 'DELETE',
+    actionDate: p.deletedAt,
+    actionBy: p.deleter
+      ? { ...p.deleter, warehouseName: p.deleter.warehouse?.name || null, warehouseCode: p.deleter.warehouse?.code || null }
+      : null,
+    actionWarehouse: p.deleter?.warehouse || null,
+  }));
 
   let combined = [...createdMapped, ...deletedMapped].sort((a, b) => new Date(b.actionDate) - new Date(a.actionDate));
 

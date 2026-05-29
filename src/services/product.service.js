@@ -121,6 +121,20 @@ async function createProduct(data, userId = null) {
     throw new Error('Ya existe un producto con ese SKU');
   }
 
+  // Resolver almacén: usar el explícito del body o el almacén asignado al usuario
+  let resolvedWarehouseId = initialWarehouseId;
+  let userWarehouse = null;
+  if (userId) {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: { warehouseId: true, warehouse: { select: { id: true, code: true, name: true } } },
+    });
+    userWarehouse = userRecord?.warehouse || null;
+    if (!resolvedWarehouseId && userRecord?.warehouseId) {
+      resolvedWarehouseId = userRecord.warehouseId.toString();
+    }
+  }
+
   const product = await prisma.product.create({
     data: {
       name,
@@ -143,10 +157,11 @@ async function createProduct(data, userId = null) {
     },
   });
 
-  // Si viene stock inicial con almacén, crear WarehouseStock + movimiento INGRESO
-  if (initialWarehouseId && initialQuantity != null && initialQuantity > 0) {
-    const whId = BigInt(initialWarehouseId);
-    const createdByBig = userId ? BigInt(userId) : BigInt(1);
+  const createdByBig = userId ? BigInt(userId) : BigInt(1);
+
+  // Si hay almacén resuelto y cantidad > 0, crear WarehouseStock + movimiento INGRESO
+  if (resolvedWarehouseId && initialQuantity != null && initialQuantity > 0) {
+    const whId = BigInt(resolvedWarehouseId);
     await prisma.$transaction(async (tx) => {
       await tx.warehouseStock.upsert({
         where: { warehouseId_productId: { warehouseId: whId, productId: product.id } },
@@ -166,14 +181,20 @@ async function createProduct(data, userId = null) {
     });
   }
 
-  // Registrar en AuditLog
+  // Registrar en AuditLog con almacén de contexto
   await prisma.auditLog.create({
     data: {
       userId: userId ? BigInt(userId) : null,
       action: 'CREATE',
       entityType: 'Product',
       entityId: product.id,
-      newValues: JSON.stringify({ sku: product.sku, name: product.name }),
+      newValues: JSON.stringify({
+        sku: product.sku,
+        name: product.name,
+        warehouseId: resolvedWarehouseId || null,
+        warehouseName: userWarehouse?.name || null,
+        quantity: initialQuantity || 0,
+      }),
     },
   }).catch(() => {});
 
@@ -241,8 +262,7 @@ async function deleteProduct(id, userId = null) {
     where: { id: BigInt(id) },
     include: {
       warehouseStocks: {
-        where: { quantity: { gt: 0 } },
-        include: { warehouse: { select: { id: true, name: true } } },
+        include: { warehouse: { select: { id: true, code: true, name: true } } },
       },
     },
   });
@@ -251,11 +271,29 @@ async function deleteProduct(id, userId = null) {
     throw new Error('Producto no encontrado');
   }
 
+  // Obtener almacén del usuario que elimina
+  let deleterWarehouse = null;
+  if (userId) {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: { warehouse: { select: { id: true, code: true, name: true } } },
+    });
+    deleterWarehouse = userRecord?.warehouse || null;
+  }
+
   const deletedAt = new Date();
   const createdByBig = userId ? BigInt(userId) : BigInt(1);
 
+  // Lista de almacenes con stock para el AuditLog
+  const warehousesWithStock = product.warehouseStocks
+    .filter(s => parseFloat(s.quantity) > 0)
+    .map(s => ({
+      warehouseId: s.warehouseId.toString(),
+      warehouseName: s.warehouse.name,
+      quantity: parseFloat(s.quantity),
+    }));
+
   await prisma.$transaction(async (tx) => {
-    // Soft delete del producto
     await tx.product.update({
       where: { id: BigInt(id) },
       data: {
@@ -282,14 +320,20 @@ async function deleteProduct(id, userId = null) {
       }
     }
 
-    // Registrar en AuditLog
+    // Registrar en AuditLog con almacenes
     await tx.auditLog.create({
       data: {
         userId: userId ? BigInt(userId) : null,
         action: 'DELETE',
         entityType: 'Product',
         entityId: product.id,
-        oldValues: JSON.stringify({ sku: product.sku, name: product.name, isActive: true }),
+        oldValues: JSON.stringify({
+          sku: product.sku,
+          name: product.name,
+          isActive: true,
+          warehouses: warehousesWithStock,
+          deleterWarehouse: deleterWarehouse,
+        }),
         newValues: JSON.stringify({ isActive: false, deletedAt }),
       },
     });
