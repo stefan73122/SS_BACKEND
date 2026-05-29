@@ -1,6 +1,12 @@
 const ExcelJS = require('exceljs');
 const prisma = require('../prisma/client');
 
+function endOfDay(dateStr) {
+  const d = new Date(dateStr);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
+
 function getCellValue(cell) {
   const v = cell.value;
   if (v === null || v === undefined) return null;
@@ -454,7 +460,7 @@ async function exportProductsByWarehouse({ warehouseId, startDate, endDate }) {
             ...(startDate || endDate ? {
               createdAt: {
                 ...(startDate && { gte: new Date(startDate) }),
-                ...(endDate && { lte: new Date(endDate) }),
+                ...(endDate && { lte: endOfDay(endDate) }),
               },
             } : {}),
           },
@@ -562,7 +568,7 @@ async function exportProductsBySeller({ userId, startDate, endDate }) {
           ...(startDate || endDate ? {
             createdAt: {
               ...(startDate && { gte: new Date(startDate) }),
-              ...(endDate && { lte: new Date(endDate) }),
+              ...(endDate && { lte: endOfDay(endDate) }),
             },
           } : {}),
         },
@@ -640,7 +646,7 @@ async function exportProductActivity({ startDate, endDate, warehouseId, userId }
   workbook.created = new Date();
 
   const dateGte = startDate ? new Date(startDate) : undefined;
-  const dateLte = endDate ? new Date(endDate) : undefined;
+  const dateLte = endDate ? endOfDay(endDate) : undefined;
 
   const baseWhere = {
     ...(warehouseId ? { warehouseStocks: { some: { warehouseId: BigInt(warehouseId) } } } : {}),
@@ -785,7 +791,7 @@ async function exportProductsGeneral({ startDate, endDate, includeInactive = fal
     ...(startDate || endDate ? {
       createdAt: {
         ...(startDate && { gte: new Date(startDate) }),
-        ...(endDate && { lte: new Date(endDate) }),
+        ...(endDate && { lte: endOfDay(endDate) }),
       },
     } : {}),
   };
