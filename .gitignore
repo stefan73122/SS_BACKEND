@@ -6,3 +6,6 @@ generated/
 generated/prisma
 package-lock.json
 uploads/
+# Backups de base de datos (contienen datos sensibles)
+# Si quieres versionar el backup para redeploy, quita esta línea
+scripts/backup/

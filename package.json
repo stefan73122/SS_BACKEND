@@ -11,6 +11,8 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "seed": "node scripts/seed-initial-data.js",
+    "backup": "node scripts/backup-db.js",
+    "restore": "node scripts/restore-db.js",
     "reset": "node scripts/reset-database.js",
     "reset:seed": "npm run reset && npm run seed",
     "check-stock": "node scripts/check-low-stock.js"
