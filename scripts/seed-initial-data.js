@@ -195,32 +195,57 @@ async function seedInitialData() {
       create: { name: 'Vendedor', description: 'Personal de ventas — gestiona cotizaciones, clientes y proyectos' },
     });
 
-    // El vendedor puede VER, CREAR y ACTUALIZAR cotizaciones, pero NO eliminarlas
-    // ni cambiar precios de ítems (eso es exclusivo del administrador)
-    const vendedorPrefixes = [
-      'clients.',
+    // Permisos del Vendedor — solo lo justo y lógico para su rol
+    const vendedorCodes = [
+      // Clientes: puede registrar y actualizar, NO eliminar
+      'clients.view',
+      'clients.create',
+      'clients.update',
+
+      // Cotizaciones: crea y gestiona las suyas, NO borra ni cambia precios base
       'quotes.view',
       'quotes.create',
       'quotes.update',
       'quotes.approve',
-      // SIN quotes.delete  — no puede borrar cotizaciones
-      // SIN quotes.update-price — no puede cambiar precios de ítems
-      'products.view',
-      'products.stock',
-      'categories.view',
-      'units.view',
-      'services.view',
+
+      // Cotizaciones de servicio: igual que cotizaciones normales
       'service-quotes.view',
       'service-quotes.create',
       'service-quotes.update',
-      // SIN service-quotes.delete — no puede borrar cotizaciones de servicio
-      'kits.',
-      'projects.',
-      'pos.',
+
+      // Productos: solo consulta — no gestiona inventario
+      'products.view',
+      'products.stock',
+
+      // Kits: solo ver para armar cotizaciones — no los administra
+      'kits.view',
+
+      // Servicios: solo ver para agregar a cotizaciones
+      'services.view',
+
+      // Proyectos: puede crear y actualizar proyectos de sus clientes, NO eliminar
+      'projects.view',
+      'projects.create',
+      'projects.update',
+
+      // Categorías y unidades: solo ver, para navegar y armar cotizaciones
+      'categories.view',
+      'units.view',
+
+      // Punto de Venta: opera caja pero NO cierra caja, NO hace devoluciones, NO cancela ventas
+      'pos.access',
+      'pos.create-sale',
+      'pos.view-sales',
+      'pos.apply-discount',
+      'pos.view-reports',
+
+      // Créditos: solo consulta si un cliente tiene crédito pendiente
       'credits.view',
+
+      // Reportes: solo sus propias ventas
       'reports.sales',
     ];
-    const vendedorPermissions = filterByPrefixes(vendedorPrefixes);
+    const vendedorPermissions = createdPermissions.filter(p => vendedorCodes.includes(p.code));
 
     await prisma.rolePermission.deleteMany({ where: { roleId: vendedorRole.id } });
     for (const permission of vendedorPermissions) {
