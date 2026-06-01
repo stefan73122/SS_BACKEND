@@ -228,6 +228,9 @@ async function seedInitialData() {
       'projects.create',
       'projects.update',
 
+      // Inventario: solo ver para saber disponibilidad, NO registrar movimientos
+      'inventory.view',
+
       // Categorías y unidades: solo ver, para navegar y armar cotizaciones
       'categories.view',
       'units.view',
