@@ -1,18 +1,19 @@
 const express = require('express');
 const quoteController = require('../controllers/quote.controller');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { requirePermission } = require('../middlewares/permissionMiddleware');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
-router.get('/', quoteController.getAll);
-router.get('/:id', quoteController.getById);
-router.get('/:id/check-stock', quoteController.checkStock);
-router.get('/:id/receipt', quoteController.getReceipt);
-router.post('/', quoteController.create);
-router.put('/:id', quoteController.update);
-router.delete('/:id', quoteController.remove);
-router.patch('/items/:itemId/price', quoteController.updateItemPrice);
+router.get('/',                      requirePermission('quotes.view'),         quoteController.getAll);
+router.get('/:id',                   requirePermission('quotes.view'),         quoteController.getById);
+router.get('/:id/check-stock',       requirePermission('quotes.view'),         quoteController.checkStock);
+router.get('/:id/receipt',           requirePermission('quotes.view'),         quoteController.getReceipt);
+router.post('/',                     requirePermission('quotes.create'),       quoteController.create);
+router.put('/:id',                   requirePermission('quotes.update'),       quoteController.update);
+router.delete('/:id',                requirePermission('quotes.delete'),       quoteController.remove);
+router.patch('/items/:itemId/price', requirePermission('quotes.update-price'), quoteController.updateItemPrice);
 
 module.exports = router;

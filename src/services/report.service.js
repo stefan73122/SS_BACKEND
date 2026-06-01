@@ -32,17 +32,32 @@ async function getSalesReport({ startDate, endDate, userId, status, page = 1, li
       include: {
         client: { select: { id: true, name: true, documentNum: true } },
         creator: { select: { id: true, username: true, fullName: true } },
-        items: true,
+        items: {
+          select: {
+            id: true,
+            itemType: true,
+            quantity: true,
+            unitPrice: true,
+            unitPriceBase: true,
+            discount: true,
+            taxPercent: true,
+            lineTotal: true,
+            sortOrder: true,
+            product: { select: { id: true, sku: true, name: true } },
+            kit:     { select: { id: true, name: true } },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.quote.count({ where }),
   ]);
 
-  // Calcular totales
+  // Calcular totales generales
   const totals = await prisma.quote.aggregate({
     where,
-    _sum: { grandTotal: true, discountTotal: true },
+    _sum: { grandTotal: true, discountTotal: true, subtotal: true },
     _count: true,
   });
 
@@ -51,17 +66,47 @@ async function getSalesReport({ startDate, endDate, userId, status, page = 1, li
     by: ['status'],
     where,
     _count: true,
-    _sum: { grandTotal: true },
+    _sum: { grandTotal: true, discountTotal: true },
   });
+
+  // Agrupar por vendedor (creador) con sus totales y descuentos
+  const byVendedor = await prisma.quote.groupBy({
+    by: ['createdBy'],
+    where,
+    _count: true,
+    _sum: { grandTotal: true, discountTotal: true, subtotal: true },
+    orderBy: { _sum: { grandTotal: 'desc' } },
+  });
+
+  const byVendedorEnriched = await Promise.all(
+    byVendedor.map(async (row) => {
+      if (!row.createdBy) return null;
+      const user = await prisma.user.findUnique({
+        where: { id: row.createdBy },
+        select: { id: true, username: true, fullName: true },
+      });
+      return {
+        vendedor: user
+          ? { id: user.id.toString(), username: user.username, fullName: user.fullName }
+          : { id: row.createdBy.toString() },
+        totalCotizaciones: row._count,
+        totalMonto:     row._sum.grandTotal   || 0,
+        totalDescuento: row._sum.discountTotal || 0,
+        totalSubtotal:  row._sum.subtotal      || 0,
+      };
+    })
+  );
 
   return {
     quotes,
     pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     summary: {
-      totalQuotes: totals._count,
-      totalAmount: totals._sum.grandTotal || 0,
-      totalDiscount: totals._sum.discountTotal || 0,
+      totalQuotes:    totals._count,
+      totalAmount:    totals._sum.grandTotal    || 0,
+      totalDiscount:  totals._sum.discountTotal || 0,
+      totalSubtotal:  totals._sum.subtotal      || 0,
       byStatus,
+      byVendedor: byVendedorEnriched.filter(Boolean),
     },
   };
 }
@@ -93,17 +138,33 @@ async function getEmployeeReport({ userId, startDate, endDate }) {
 
   const employeeReports = await Promise.all(users.map(async (user) => {
     const [quotes, movements, serviceOrders] = await Promise.all([
-      // Cotizaciones creadas por el empleado
+      // Cotizaciones creadas por el empleado con descuentos por ítem y global
       prisma.quote.findMany({
         where: { createdBy: user.id, ...dateFilter },
         select: {
           id: true,
           quoteNumber: true,
           status: true,
+          subtotal: true,
+          discountTotal: true,
           grandTotal: true,
           quoteType: true,
+          currency: true,
           createdAt: true,
-          client: { select: { name: true } },
+          client: { select: { id: true, name: true } },
+          items: {
+            select: {
+              id: true,
+              itemType: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              lineTotal: true,
+              product: { select: { id: true, sku: true, name: true } },
+              kit:     { select: { id: true, name: true } },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -137,9 +198,16 @@ async function getEmployeeReport({ userId, startDate, endDate }) {
     ]);
 
     // Calcular totales del empleado
-    const totalSales = quotes.reduce((sum, q) => sum + (parseFloat(q.grandTotal) || 0), 0);
+    const totalSales    = quotes.reduce((sum, q) => sum + (parseFloat(q.grandTotal)    || 0), 0);
+    const totalDiscount = quotes.reduce((sum, q) => sum + (parseFloat(q.discountTotal) || 0), 0);
     const approvedQuotes = quotes.filter(q => q.status === 'APROBADA').length;
-    const pendingQuotes = quotes.filter(q => q.status === 'PENDIENTE' || q.status === 'ENVIADA').length;
+    const pendingQuotes  = quotes.filter(q => q.status === 'PENDIENTE' || q.status === 'ENVIADA').length;
+
+    // Cotizaciones con al menos un descuento aplicado (ítem o global)
+    const quotesWithDiscount = quotes.filter(q =>
+      parseFloat(q.discountTotal) > 0 ||
+      q.items.some(item => parseFloat(item.discount) > 0)
+    );
 
     return {
       user: {
@@ -153,9 +221,11 @@ async function getEmployeeReport({ userId, startDate, endDate }) {
         totalQuotes: quotes.length,
         approvedQuotes,
         pendingQuotes,
-        totalSalesAmount: totalSales,
-        totalMovements: movements.length,
-        totalServiceOrders: serviceOrders.length,
+        totalSalesAmount:    totalSales,
+        totalDiscountAmount: totalDiscount,
+        totalMovements:      movements.length,
+        totalServiceOrders:  serviceOrders.length,
+        quotesWithDiscount:  quotesWithDiscount.length,
       },
       quotes,
       movements,

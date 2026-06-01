@@ -6,13 +6,12 @@ const { requirePermission } = require('../middlewares/permissionMiddleware');
 const router = express.Router();
 
 router.use(authMiddleware);
-router.use(requirePermission('reports.view'));
 
-router.get('/general', reportController.getGeneralReport);
-router.get('/sales', reportController.getSalesReport);
-router.get('/employees', reportController.getEmployeeReport);
-router.get('/inventory', reportController.getInventoryMovementsReport);
-router.get('/product-activity', reportController.getProductActivityReport);
-router.get('/products-by-warehouse', reportController.getProductsByWarehouseReport);
+router.get('/general',               requirePermission('reports.view'),       reportController.getGeneralReport);
+router.get('/sales',                 requirePermission('reports.sales'),       reportController.getSalesReport);
+router.get('/employees',             requirePermission('reports.employees'),   reportController.getEmployeeReport);
+router.get('/inventory',             requirePermission('reports.inventory'),   reportController.getInventoryMovementsReport);
+router.get('/product-activity',      requirePermission('reports.products'),    reportController.getProductActivityReport);
+router.get('/products-by-warehouse', requirePermission('reports.warehouses'),  reportController.getProductsByWarehouseReport);
 
 module.exports = router;

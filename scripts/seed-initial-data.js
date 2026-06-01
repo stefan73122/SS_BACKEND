@@ -35,383 +35,296 @@ async function seedInitialData() {
     // 2. CREAR PERMISOS
     console.log('📝 Creando permisos...');
     const permissionsData = [
-      // Usuarios
-      { code: 'users.view', description: 'Ver usuarios', module: 'Usuarios' },
-      { code: 'users.create', description: 'Crear usuarios', module: 'Usuarios' },
-      { code: 'users.update', description: 'Actualizar usuarios', module: 'Usuarios' },
-      { code: 'users.delete', description: 'Eliminar usuarios', module: 'Usuarios' },
-      
-      // Roles y Permisos
-      { code: 'roles.view', description: 'Ver roles', module: 'Roles' },
-      { code: 'roles.create', description: 'Crear roles', module: 'Roles' },
-      { code: 'roles.update', description: 'Actualizar roles', module: 'Roles' },
-      { code: 'roles.delete', description: 'Eliminar roles', module: 'Roles' },
+      // ── Usuarios ──────────────────────────────────────────────────────────
+      { code: 'users.view',   description: 'Ver usuarios',           module: 'Usuarios' },
+      { code: 'users.create', description: 'Crear usuarios',         module: 'Usuarios' },
+      { code: 'users.update', description: 'Actualizar usuarios',    module: 'Usuarios' },
+      { code: 'users.delete', description: 'Eliminar usuarios',      module: 'Usuarios' },
+
+      // ── Roles ─────────────────────────────────────────────────────────────
+      { code: 'roles.view',   description: 'Ver roles',              module: 'Roles' },
+      { code: 'roles.create', description: 'Crear roles',            module: 'Roles' },
+      { code: 'roles.update', description: 'Actualizar roles',       module: 'Roles' },
+      { code: 'roles.delete', description: 'Eliminar roles',         module: 'Roles' },
       { code: 'roles.assign', description: 'Asignar roles a usuarios', module: 'Roles' },
-      { code: 'permissions.view', description: 'Ver permisos', module: 'Permisos' },
-      { code: 'permissions.create', description: 'Crear permisos', module: 'Permisos' },
-      
-      // Clientes
-      { code: 'clients.view', description: 'Ver clientes', module: 'Clientes' },
-      { code: 'clients.create', description: 'Crear clientes', module: 'Clientes' },
-      { code: 'clients.update', description: 'Actualizar clientes', module: 'Clientes' },
-      { code: 'clients.delete', description: 'Eliminar clientes', module: 'Clientes' },
-      
-      // Productos
-      { code: 'products.view', description: 'Ver productos', module: 'Productos' },
-      { code: 'products.create', description: 'Crear productos', module: 'Productos' },
+
+      // ── Permisos ──────────────────────────────────────────────────────────
+      { code: 'permissions.view',   description: 'Ver permisos',        module: 'Permisos' },
+      { code: 'permissions.create', description: 'Crear permisos',      module: 'Permisos' },
+      { code: 'permissions.update', description: 'Actualizar permisos', module: 'Permisos' },
+      { code: 'permissions.delete', description: 'Eliminar permisos',   module: 'Permisos' },
+
+      // ── Clientes ──────────────────────────────────────────────────────────
+      { code: 'clients.view',   description: 'Ver clientes',         module: 'Clientes' },
+      { code: 'clients.create', description: 'Crear clientes',       module: 'Clientes' },
+      { code: 'clients.update', description: 'Actualizar clientes',  module: 'Clientes' },
+      { code: 'clients.delete', description: 'Eliminar clientes',    module: 'Clientes' },
+
+      // ── Productos ─────────────────────────────────────────────────────────
+      { code: 'products.view',   description: 'Ver productos',        module: 'Productos' },
+      { code: 'products.create', description: 'Crear productos',      module: 'Productos' },
       { code: 'products.update', description: 'Actualizar productos', module: 'Productos' },
-      { code: 'products.delete', description: 'Eliminar productos', module: 'Productos' },
-      { code: 'products.stock', description: 'Consultar stock', module: 'Productos' },
-      
-      // Proveedores
-      { code: 'suppliers.view', description: 'Ver proveedores', module: 'Proveedores' },
-      { code: 'suppliers.create', description: 'Crear proveedores', module: 'Proveedores' },
-      { code: 'suppliers.update', description: 'Actualizar proveedores', module: 'Proveedores' },
-      { code: 'suppliers.delete', description: 'Eliminar proveedores', module: 'Proveedores' },
-      
-      // Cotizaciones
-      { code: 'quotes.view', description: 'Ver cotizaciones', module: 'Cotizaciones' },
-      { code: 'quotes.create', description: 'Crear cotizaciones', module: 'Cotizaciones' },
-      { code: 'quotes.update', description: 'Actualizar cotizaciones', module: 'Cotizaciones' },
-      { code: 'quotes.delete', description: 'Eliminar cotizaciones', module: 'Cotizaciones' },
-      { code: 'quotes.approve', description: 'Aprobar cotizaciones', module: 'Cotizaciones' },
-      
-      // Inventario
-      { code: 'inventory.view', description: 'Ver inventario', module: 'Inventario' },
-      { code: 'inventory.movements', description: 'Registrar movimientos', module: 'Inventario' },
-      { code: 'inventory.transfer', description: 'Transferir stock', module: 'Inventario' },
-      
-      // Kits
-      { code: 'kits.view', description: 'Ver kits', module: 'Kits' },
-      { code: 'kits.create', description: 'Crear kits', module: 'Kits' },
-      { code: 'kits.update', description: 'Actualizar kits', module: 'Kits' },
-      
-      // Proyectos
-      { code: 'projects.view', description: 'Ver proyectos', module: 'Proyectos' },
-      { code: 'projects.create', description: 'Crear proyectos', module: 'Proyectos' },
-      { code: 'projects.update', description: 'Actualizar proyectos', module: 'Proyectos' },
-      
-      // Excel
-      { code: 'excel.import', description: 'Importar desde Excel', module: 'Excel' },
-      { code: 'excel.export', description: 'Exportar a Excel', module: 'Excel' },
+      { code: 'products.delete', description: 'Eliminar productos',   module: 'Productos' },
+      { code: 'products.stock',  description: 'Consultar stock de productos', module: 'Productos' },
 
-      // Reportes
-      { code: 'reports.view', description: 'Ver reportes completos', module: 'Reportes' },
+      // ── Categorías ────────────────────────────────────────────────────────
+      { code: 'categories.view',   description: 'Ver categorías',        module: 'Categorías' },
+      { code: 'categories.create', description: 'Crear categorías',      module: 'Categorías' },
+      { code: 'categories.update', description: 'Actualizar categorías', module: 'Categorías' },
+      { code: 'categories.delete', description: 'Eliminar categorías',   module: 'Categorías' },
 
-      // Unidades
-      { code: 'units.view', description: 'Ver unidades de medida', module: 'Unidades' },
-      { code: 'units.create', description: 'Crear unidades de medida', module: 'Unidades' },
+      // ── Unidades de medida ────────────────────────────────────────────────
+      { code: 'units.view',   description: 'Ver unidades de medida',        module: 'Unidades' },
+      { code: 'units.create', description: 'Crear unidades de medida',      module: 'Unidades' },
       { code: 'units.update', description: 'Actualizar unidades de medida', module: 'Unidades' },
-      { code: 'units.delete', description: 'Eliminar unidades de medida', module: 'Unidades' },
+      { code: 'units.delete', description: 'Eliminar unidades de medida',   module: 'Unidades' },
 
-      // Créditos
-      { code: 'credits.view', description: 'Ver pagos a crédito', module: 'Créditos' },
-      { code: 'credits.manage', description: 'Gestionar pagos a crédito', module: 'Créditos' },
-      { code: 'credits.mark-paid', description: 'Marcar pagos como pagados', module: 'Créditos' },
+      // ── Proveedores ───────────────────────────────────────────────────────
+      { code: 'suppliers.view',   description: 'Ver proveedores',        module: 'Proveedores' },
+      { code: 'suppliers.create', description: 'Crear proveedores',      module: 'Proveedores' },
+      { code: 'suppliers.update', description: 'Actualizar proveedores', module: 'Proveedores' },
+      { code: 'suppliers.delete', description: 'Eliminar proveedores',   module: 'Proveedores' },
 
-      // Punto de Venta (POS)
-      { code: 'pos.access', description: 'Acceder al punto de venta', module: 'Punto de Venta' },
-      { code: 'pos.create-sale', description: 'Crear ventas', module: 'Punto de Venta' },
-      { code: 'pos.view-sales', description: 'Ver historial de ventas', module: 'Punto de Venta' },
-      { code: 'pos.cancel-sale', description: 'Cancelar ventas', module: 'Punto de Venta' },
-      { code: 'pos.apply-discount', description: 'Aplicar descuentos', module: 'Punto de Venta' },
-      { code: 'pos.refund', description: 'Realizar devoluciones', module: 'Punto de Venta' },
-      { code: 'pos.close-cash', description: 'Cerrar caja', module: 'Punto de Venta' },
-      { code: 'pos.view-reports', description: 'Ver reportes de caja', module: 'Punto de Venta' },
+      // ── Almacenes ─────────────────────────────────────────────────────────
+      { code: 'warehouses.view',   description: 'Ver almacenes',        module: 'Almacenes' },
+      { code: 'warehouses.create', description: 'Crear almacenes',      module: 'Almacenes' },
+      { code: 'warehouses.update', description: 'Actualizar almacenes', module: 'Almacenes' },
+      { code: 'warehouses.delete', description: 'Eliminar almacenes',   module: 'Almacenes' },
+
+      // ── Inventario ────────────────────────────────────────────────────────
+      { code: 'inventory.view',           description: 'Ver inventario general',              module: 'Inventario' },
+      { code: 'inventory.view-movements', description: 'Ver historial de movimientos',        module: 'Inventario' },
+      { code: 'inventory.view-low-stock', description: 'Ver productos con stock bajo',        module: 'Inventario' },
+      { code: 'inventory.movements',      description: 'Registrar movimientos de inventario', module: 'Inventario' },
+      { code: 'inventory.transfer',       description: 'Transferir stock entre almacenes',    module: 'Inventario' },
+
+      // ── Cotizaciones ──────────────────────────────────────────────────────
+      { code: 'quotes.view',         description: 'Ver cotizaciones',                module: 'Cotizaciones' },
+      { code: 'quotes.create',       description: 'Crear cotizaciones',              module: 'Cotizaciones' },
+      { code: 'quotes.update',       description: 'Actualizar cotizaciones',         module: 'Cotizaciones' },
+      { code: 'quotes.delete',       description: 'Eliminar cotizaciones',           module: 'Cotizaciones' },
+      { code: 'quotes.approve',      description: 'Aprobar cotizaciones',            module: 'Cotizaciones' },
+      { code: 'quotes.update-price', description: 'Actualizar precio de ítems',     module: 'Cotizaciones' },
+
+      // ── Servicios ─────────────────────────────────────────────────────────
+      { code: 'services.view',   description: 'Ver servicios',        module: 'Servicios' },
+      { code: 'services.create', description: 'Crear servicios',      module: 'Servicios' },
+      { code: 'services.update', description: 'Actualizar servicios', module: 'Servicios' },
+      { code: 'services.delete', description: 'Eliminar servicios',   module: 'Servicios' },
+
+      // ── Cotizaciones de Servicio ──────────────────────────────────────────
+      { code: 'service-quotes.view',   description: 'Ver cotizaciones de servicio',        module: 'Cotizaciones de Servicio' },
+      { code: 'service-quotes.create', description: 'Crear cotizaciones de servicio',      module: 'Cotizaciones de Servicio' },
+      { code: 'service-quotes.update', description: 'Actualizar cotizaciones de servicio', module: 'Cotizaciones de Servicio' },
+      { code: 'service-quotes.delete', description: 'Eliminar cotizaciones de servicio',   module: 'Cotizaciones de Servicio' },
+
+      // ── Kits ──────────────────────────────────────────────────────────────
+      { code: 'kits.view',   description: 'Ver kits',        module: 'Kits' },
+      { code: 'kits.create', description: 'Crear kits',      module: 'Kits' },
+      { code: 'kits.update', description: 'Actualizar kits', module: 'Kits' },
+      { code: 'kits.delete', description: 'Eliminar kits',   module: 'Kits' },
+
+      // ── Proyectos ─────────────────────────────────────────────────────────
+      { code: 'projects.view',   description: 'Ver proyectos',        module: 'Proyectos' },
+      { code: 'projects.create', description: 'Crear proyectos',      module: 'Proyectos' },
+      { code: 'projects.update', description: 'Actualizar proyectos', module: 'Proyectos' },
+      { code: 'projects.delete', description: 'Eliminar proyectos',   module: 'Proyectos' },
+
+      // ── Importación / Exportación Excel ───────────────────────────────────
+      { code: 'excel.import', description: 'Importar datos desde Excel', module: 'Excel' },
+      { code: 'excel.export', description: 'Exportar datos a Excel',     module: 'Excel' },
+
+      // ── Reportes ──────────────────────────────────────────────────────────
+      { code: 'reports.view',       description: 'Ver todos los reportes',                    module: 'Reportes' },
+      { code: 'reports.sales',      description: 'Ver reporte de ventas',                     module: 'Reportes' },
+      { code: 'reports.employees',  description: 'Ver reporte de empleados',                  module: 'Reportes' },
+      { code: 'reports.inventory',  description: 'Ver reporte de movimientos de inventario',  module: 'Reportes' },
+      { code: 'reports.products',   description: 'Ver reporte de actividad de productos',     module: 'Reportes' },
+      { code: 'reports.warehouses', description: 'Ver reporte de productos por almacén',      module: 'Reportes' },
+
+      // ── Créditos ──────────────────────────────────────────────────────────
+      { code: 'credits.view',      description: 'Ver pagos a crédito',         module: 'Créditos' },
+      { code: 'credits.manage',    description: 'Gestionar pagos a crédito',   module: 'Créditos' },
+      { code: 'credits.mark-paid', description: 'Marcar pagos como pagados',   module: 'Créditos' },
+
+      // ── Punto de Venta ────────────────────────────────────────────────────
+      { code: 'pos.access',         description: 'Acceder al punto de venta',  module: 'Punto de Venta' },
+      { code: 'pos.create-sale',    description: 'Crear ventas',               module: 'Punto de Venta' },
+      { code: 'pos.view-sales',     description: 'Ver historial de ventas',    module: 'Punto de Venta' },
+      { code: 'pos.cancel-sale',    description: 'Cancelar ventas',            module: 'Punto de Venta' },
+      { code: 'pos.apply-discount', description: 'Aplicar descuentos',         module: 'Punto de Venta' },
+      { code: 'pos.refund',         description: 'Realizar devoluciones',      module: 'Punto de Venta' },
+      { code: 'pos.close-cash',     description: 'Cerrar caja',                module: 'Punto de Venta' },
+      { code: 'pos.view-reports',   description: 'Ver reportes de caja',       module: 'Punto de Venta' },
     ];
 
     const createdPermissions = [];
     for (const permData of permissionsData) {
-      const existing = await prisma.permission.findUnique({
+      const permission = await prisma.permission.upsert({
         where: { code: permData.code },
+        update: { description: permData.description, module: permData.module },
+        create: permData,
       });
-
-      if (existing) {
-        createdPermissions.push(existing);
-      } else {
-        const permission = await prisma.permission.create({ data: permData });
-        createdPermissions.push(permission);
-      }
+      createdPermissions.push(permission);
     }
-    console.log(`   ✅ ${createdPermissions.length} permisos creados/verificados\n`);
+    console.log(`   ✅ ${createdPermissions.length} permisos creados/actualizados\n`);
 
-    // 2. CREAR ROL ADMINISTRADOR
+    // Helper para filtrar permisos por prefijos
+    const filterByPrefixes = (prefixes) =>
+      createdPermissions.filter(p => prefixes.some(prefix => p.code === prefix || p.code.startsWith(prefix)));
+
+    // ── ROL ADMINISTRADOR ──────────────────────────────────────────────────
     console.log('👑 Creando rol Administrador...');
-    let adminRole = await prisma.role.findUnique({
+    let adminRole = await prisma.role.upsert({
       where: { name: 'Administrador' },
+      update: { description: 'Acceso completo al sistema' },
+      create: { name: 'Administrador', description: 'Acceso completo al sistema' },
     });
 
-    if (!adminRole) {
-      adminRole = await prisma.role.create({
-        data: {
-          name: 'Administrador',
-          description: 'Acceso completo al sistema',
-        },
-      });
-      console.log('   ✅ Rol Administrador creado');
-    } else {
-      console.log('   ⚠️  Rol Administrador ya existe');
-    }
-
-    // Asignar TODOS los permisos al administrador
-    await prisma.rolePermission.deleteMany({
-      where: { roleId: adminRole.id },
-    });
-
+    await prisma.rolePermission.deleteMany({ where: { roleId: adminRole.id } });
     for (const permission of createdPermissions) {
-      await prisma.rolePermission.create({
-        data: {
-          roleId: adminRole.id,
-          permissionId: permission.id,
-        },
-      });
+      await prisma.rolePermission.create({ data: { roleId: adminRole.id, permissionId: permission.id } });
     }
     console.log(`   ✅ ${createdPermissions.length} permisos asignados al Administrador\n`);
 
-    // 3. CREAR ROL VENDEDOR
+    // ── ROL VENDEDOR ───────────────────────────────────────────────────────
     console.log('💼 Creando rol Vendedor...');
-    let vendedorRole = await prisma.role.findUnique({
+    let vendedorRole = await prisma.role.upsert({
       where: { name: 'Vendedor' },
+      update: { description: 'Personal de ventas — gestiona cotizaciones, clientes y proyectos' },
+      create: { name: 'Vendedor', description: 'Personal de ventas — gestiona cotizaciones, clientes y proyectos' },
     });
 
-    if (!vendedorRole) {
-      vendedorRole = await prisma.role.create({
-        data: {
-          name: 'Vendedor',
-          description: 'Personal de ventas - gestiona cotizaciones, clientes y proyectos',
-        },
-      });
-      console.log('   ✅ Rol Vendedor creado');
-    } else {
-      console.log('   ⚠️  Rol Vendedor ya existe');
-    }
+    // El vendedor puede VER, CREAR y ACTUALIZAR cotizaciones, pero NO eliminarlas
+    // ni cambiar precios de ítems (eso es exclusivo del administrador)
+    const vendedorPrefixes = [
+      'clients.',
+      'quotes.view',
+      'quotes.create',
+      'quotes.update',
+      'quotes.approve',
+      // SIN quotes.delete  — no puede borrar cotizaciones
+      // SIN quotes.update-price — no puede cambiar precios de ítems
+      'products.view',
+      'products.stock',
+      'categories.view',
+      'units.view',
+      'services.view',
+      'service-quotes.view',
+      'service-quotes.create',
+      'service-quotes.update',
+      // SIN service-quotes.delete — no puede borrar cotizaciones de servicio
+      'kits.',
+      'projects.',
+      'pos.',
+      'credits.view',
+      'reports.sales',
+    ];
+    const vendedorPermissions = filterByPrefixes(vendedorPrefixes);
 
-    // Asignar permisos específicos al vendedor
-    const vendedorPermissions = createdPermissions.filter(p =>
-      ['clients.', 'quotes.', 'products.view', 'products.stock', 'kits.', 'projects.'].some(prefix => p.code.startsWith(prefix))
-    );
-
-    await prisma.rolePermission.deleteMany({
-      where: { roleId: vendedorRole.id },
-    });
-
+    await prisma.rolePermission.deleteMany({ where: { roleId: vendedorRole.id } });
     for (const permission of vendedorPermissions) {
-      await prisma.rolePermission.create({
-        data: {
-          roleId: vendedorRole.id,
-          permissionId: permission.id,
-        },
-      });
+      await prisma.rolePermission.create({ data: { roleId: vendedorRole.id, permissionId: permission.id } });
     }
     console.log(`   ✅ ${vendedorPermissions.length} permisos asignados al Vendedor\n`);
 
-    // 4. CREAR ROL BODEGUERO
+    // ── ROL BODEGUERO ──────────────────────────────────────────────────────
     console.log('📦 Creando rol Bodeguero...');
-    let bodegueroRole = await prisma.role.findUnique({
+    let bodegueroRole = await prisma.role.upsert({
       where: { name: 'Bodeguero' },
+      update: { description: 'Personal de bodega — gestiona inventario, almacenes y productos' },
+      create: { name: 'Bodeguero', description: 'Personal de bodega — gestiona inventario, almacenes y productos' },
     });
 
-    if (!bodegueroRole) {
-      bodegueroRole = await prisma.role.create({
-        data: {
-          name: 'Bodeguero',
-          description: 'Personal de bodega - gestiona inventario y productos',
-        },
-      });
-      console.log('   ✅ Rol Bodeguero creado');
-    } else {
-      console.log('   ⚠️  Rol Bodeguero ya existe');
-    }
+    const bodegueroPrefixes = [
+      'products.',
+      'categories.view',
+      'units.view',
+      'suppliers.',
+      'warehouses.',
+      'inventory.',
+      'excel.',
+      'reports.inventory',
+      'reports.warehouses',
+      'reports.products',
+    ];
+    const bodegueroPermissions = filterByPrefixes(bodegueroPrefixes);
 
-    // Asignar permisos específicos al bodeguero
-    const bodegueroPermissions = createdPermissions.filter(p =>
-      ['products.', 'inventory.', 'suppliers.view', 'excel.'].some(prefix => p.code.startsWith(prefix))
-    );
-
-    await prisma.rolePermission.deleteMany({
-      where: { roleId: bodegueroRole.id },
-    });
-
+    await prisma.rolePermission.deleteMany({ where: { roleId: bodegueroRole.id } });
     for (const permission of bodegueroPermissions) {
-      await prisma.rolePermission.create({
-        data: {
-          roleId: bodegueroRole.id,
-          permissionId: permission.id,
-        },
-      });
+      await prisma.rolePermission.create({ data: { roleId: bodegueroRole.id, permissionId: permission.id } });
     }
     console.log(`   ✅ ${bodegueroPermissions.length} permisos asignados al Bodeguero\n`);
 
-    // 5. CREAR USUARIO ADMINISTRADOR
-    console.log('👤 Creando usuario Administrador...');
-    const adminPassword = await bcrypt.hash('admin123', 10);
-    
-    let adminUser = await prisma.user.findUnique({
-      where: { email: 'admin@sistema.com' },
-    });
+    // ── USUARIOS DE EJEMPLO ────────────────────────────────────────────────
+    const usersToCreate = [
+      {
+        username: 'admin',
+        email: 'admin@sistema.com',
+        password: 'admin123',
+        fullName: 'Administrador del Sistema',
+        role: adminRole,
+        roleLabel: 'Administrador',
+      },
+      {
+        username: 'vendedor',
+        email: 'vendedor@sistema.com',
+        password: 'vendedor123',
+        fullName: 'Juan Pérez — Vendedor',
+        role: vendedorRole,
+        roleLabel: 'Vendedor',
+      },
+      {
+        username: 'bodeguero',
+        email: 'bodeguero@sistema.com',
+        password: 'bodeguero123',
+        fullName: 'Carlos López — Bodeguero',
+        role: bodegueroRole,
+        roleLabel: 'Bodeguero',
+      },
+    ];
 
-    if (!adminUser) {
-      adminUser = await prisma.user.create({
-        data: {
-          username: 'admin',
-          email: 'admin@sistema.com',
-          passwordHash: adminPassword,
-          fullName: 'Administrador del Sistema',
+    for (const u of usersToCreate) {
+      console.log(`👤 Creando usuario ${u.roleLabel}...`);
+      const hash = await bcrypt.hash(u.password, 10);
+
+      const user = await prisma.user.upsert({
+        where: { email: u.email },
+        update: {},
+        create: {
+          username: u.username,
+          email: u.email,
+          passwordHash: hash,
+          fullName: u.fullName,
           isActive: true,
         },
       });
-      console.log('   ✅ Usuario Administrador creado');
-      console.log('   📧 Email: admin@sistema.com');
-      console.log('   🔑 Password: admin123');
-    } else {
-      console.log('   ⚠️  Usuario Administrador ya existe');
-    }
 
-    // Asignar rol de administrador
-    const adminUserRole = await prisma.userRole.findUnique({
-      where: {
-        userId_roleId: {
-          userId: adminUser.id,
-          roleId: adminRole.id,
-        },
-      },
-    });
-
-    if (!adminUserRole) {
-      await prisma.userRole.create({
-        data: {
-          userId: adminUser.id,
-          roleId: adminRole.id,
-        },
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: u.role.id } },
+        update: {},
+        create: { userId: user.id, roleId: u.role.id },
       });
-      console.log('   ✅ Rol Administrador asignado al usuario\n');
+
+      console.log(`   ✅ Usuario creado/verificado`);
+      console.log(`   📧 Email:    ${u.email}`);
+      console.log(`   🔑 Password: ${u.password}\n`);
     }
 
-    // 6. CREAR USUARIO VENDEDOR DE EJEMPLO
-    console.log('👤 Creando usuario Vendedor de ejemplo...');
-    const vendedorPassword = await bcrypt.hash('vendedor123', 10);
-    
-    let vendedorUser = await prisma.user.findUnique({
-      where: { email: 'vendedor@sistema.com' },
-    });
-
-    if (!vendedorUser) {
-      vendedorUser = await prisma.user.create({
-        data: {
-          username: 'vendedor',
-          email: 'vendedor@sistema.com',
-          passwordHash: vendedorPassword,
-          fullName: 'Juan Pérez - Vendedor',
-          isActive: true,
-        },
-      });
-      console.log('   ✅ Usuario Vendedor creado');
-      console.log('   📧 Email: vendedor@sistema.com');
-      console.log('   🔑 Password: vendedor123');
-    } else {
-      console.log('   ⚠️  Usuario Vendedor ya existe');
-    }
-
-    // Asignar rol de vendedor
-    const vendedorUserRole = await prisma.userRole.findUnique({
-      where: {
-        userId_roleId: {
-          userId: vendedorUser.id,
-          roleId: vendedorRole.id,
-        },
-      },
-    });
-
-    if (!vendedorUserRole) {
-      await prisma.userRole.create({
-        data: {
-          userId: vendedorUser.id,
-          roleId: vendedorRole.id,
-        },
-      });
-      console.log('   ✅ Rol Vendedor asignado al usuario\n');
-    }
-
-    // 7. CREAR USUARIO BODEGUERO DE EJEMPLO
-    console.log('👤 Creando usuario Bodeguero de ejemplo...');
-    const bodegueroPassword = await bcrypt.hash('bodeguero123', 10);
-    
-    let bodegueroUser = await prisma.user.findUnique({
-      where: { email: 'bodeguero@sistema.com' },
-    });
-
-    if (!bodegueroUser) {
-      bodegueroUser = await prisma.user.create({
-        data: {
-          username: 'bodeguero',
-          email: 'bodeguero@sistema.com',
-          passwordHash: bodegueroPassword,
-          fullName: 'Carlos López - Bodeguero',
-          isActive: true,
-        },
-      });
-      console.log('   ✅ Usuario Bodeguero creado');
-      console.log('   📧 Email: bodeguero@sistema.com');
-      console.log('   🔑 Password: bodeguero123');
-    } else {
-      console.log('   ⚠️  Usuario Bodeguero ya existe');
-    }
-
-    // Asignar rol de bodeguero
-    const bodegueroUserRole = await prisma.userRole.findUnique({
-      where: {
-        userId_roleId: {
-          userId: bodegueroUser.id,
-          roleId: bodegueroRole.id,
-        },
-      },
-    });
-
-    if (!bodegueroUserRole) {
-      await prisma.userRole.create({
-        data: {
-          userId: bodegueroUser.id,
-          roleId: bodegueroRole.id,
-        },
-      });
-      console.log('   ✅ Rol Bodeguero asignado al usuario\n');
-    }
-
-    // RESUMEN
+    // ── RESUMEN ────────────────────────────────────────────────────────────
     console.log('\n' + '='.repeat(60));
     console.log('🎉 SEEDER COMPLETADO EXITOSAMENTE');
     console.log('='.repeat(60));
-    console.log('\n📊 RESUMEN DE DATOS CREADOS:\n');
-    console.log(`✅ Permisos: ${createdPermissions.length}`);
-    console.log(`✅ Roles: 3 (Administrador, Vendedor, Bodeguero)`);
-    console.log(`✅ Usuarios: 3\n`);
-    
-    console.log('👥 CREDENCIALES DE ACCESO:\n');
+    console.log(`\n✅ Permisos:  ${createdPermissions.length}`);
+    console.log(`✅ Roles:     3 (Administrador, Vendedor, Bodeguero)`);
+    console.log(`✅ Usuarios:  3\n`);
+
     console.log('┌─────────────────────────────────────────────────────┐');
-    console.log('│ ADMINISTRADOR                                       │');
-    console.log('├─────────────────────────────────────────────────────┤');
-    console.log('│ Email:    admin@sistema.com                         │');
-    console.log('│ Password: admin123                                  │');
-    console.log('│ Permisos: TODOS                                     │');
-    console.log('└─────────────────────────────────────────────────────┘\n');
-    
-    console.log('┌─────────────────────────────────────────────────────┐');
-    console.log('│ VENDEDOR                                            │');
-    console.log('├─────────────────────────────────────────────────────┤');
-    console.log('│ Email:    vendedor@sistema.com                      │');
-    console.log('│ Password: vendedor123                               │');
-    console.log('│ Permisos: Clientes, Cotizaciones, Proyectos, Kits  │');
-    console.log('└─────────────────────────────────────────────────────┘\n');
-    
-    console.log('┌─────────────────────────────────────────────────────┐');
-    console.log('│ BODEGUERO                                           │');
-    console.log('├─────────────────────────────────────────────────────┤');
-    console.log('│ Email:    bodeguero@sistema.com                     │');
-    console.log('│ Password: bodeguero123                              │');
-    console.log('│ Permisos: Productos, Inventario, Excel             │');
-    console.log('└─────────────────────────────────────────────────────┘\n');
-    
-    console.log('⚠️  IMPORTANTE: Cambia estas contraseñas en producción!\n');
+    console.log('│ ADMINISTRADOR  admin@sistema.com / admin123         │');
+    console.log('│ VENDEDOR       vendedor@sistema.com / vendedor123   │');
+    console.log('│ BODEGUERO      bodeguero@sistema.com / bodeguero123 │');
+    console.log('└─────────────────────────────────────────────────────┘');
+    console.log('\n⚠️  Cambia estas contraseñas en producción!\n');
 
   } catch (error) {
     console.error('❌ Error en el seeder:', error.message);
@@ -422,9 +335,7 @@ async function seedInitialData() {
 }
 
 seedInitialData()
-  .then(() => {
-    console.log('✅ Seeder finalizado correctamente');
-  })
+  .then(() => console.log('✅ Seeder finalizado correctamente'))
   .catch((error) => {
     console.error('❌ Error fatal:', error);
     process.exitCode = 1;
