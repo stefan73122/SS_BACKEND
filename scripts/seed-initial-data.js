@@ -228,8 +228,11 @@ async function seedInitialData() {
       'projects.create',
       'projects.update',
 
-      // Inventario: solo ver para saber disponibilidad, NO registrar movimientos
+      // Inventario: solo ver para saber disponibilidad, NO registrar movimientos ni transferir
       'inventory.view',
+
+      // Almacenes: solo ver (necesario para aprobar cotizaciones y consultar stock por almacén)
+      'warehouses.view',
 
       // Categorías y unidades: solo ver, para navegar y armar cotizaciones
       'categories.view',
