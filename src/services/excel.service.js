@@ -104,9 +104,57 @@ async function importProductsFromExcel(filePath) {
           unitId = BigInt(normalizedRow.unitName);
         }
 
-        const existing = await prisma.product.findUnique({ where: { sku: String(normalizedRow.sku) } });
+        let existing = await prisma.product.findUnique({ where: { sku: String(normalizedRow.sku) } });
         if (existing) {
-          results.errors.push({ row: rowNumber, error: `Producto con SKU "${normalizedRow.sku}" ya existe`, data: row });
+          // Producto ya existe: sumar stock si se proporcionó cantidad y almacén
+          if (normalizedRow.quantity != null && normalizedRow.warehouseRef != null) {
+            let warehouseId;
+            if (isNaN(normalizedRow.warehouseRef)) {
+              const warehouse = await prisma.warehouse.findFirst({
+                where: { name: { equals: String(normalizedRow.warehouseRef), mode: 'insensitive' } },
+              });
+              if (!warehouse) {
+                results.errors.push({
+                  row: rowNumber,
+                  error: `Almacén "${normalizedRow.warehouseRef}" no encontrado. El stock no fue actualizado.`,
+                  data: row,
+                });
+                continue;
+              }
+              warehouseId = warehouse.id;
+            } else {
+              warehouseId = BigInt(normalizedRow.warehouseRef);
+            }
+
+            const quantity = parseFloat(normalizedRow.quantity);
+            await prisma.$transaction(async (tx) => {
+              await tx.warehouseStock.upsert({
+                where: { warehouseId_productId: { warehouseId, productId: existing.id } },
+                create: { productId: existing.id, warehouseId, quantity },
+                update: { quantity: { increment: quantity } },
+              });
+              await tx.inventoryMovement.create({
+                data: {
+                  type: 'INGRESO',
+                  reason: 'COMPRA',
+                  note: 'Stock sumado desde importación Excel',
+                  warehouseToId: warehouseId,
+                  createdBy: BigInt(1),
+                  items: { create: { productId: existing.id, quantity } },
+                },
+              });
+            });
+
+            results.success.push({
+              row: rowNumber,
+              productId: existing.id.toString(),
+              sku: existing.sku,
+              name: existing.name,
+              note: `Producto existente — se sumaron ${quantity} unidades al stock`,
+            });
+          } else {
+            results.errors.push({ row: rowNumber, error: `Producto con SKU "${normalizedRow.sku}" ya existe`, data: row });
+          }
           continue;
         }
 
@@ -232,7 +280,7 @@ async function updateStockFromExcel(filePath) {
         await prisma.$transaction(async (tx) => {
           await tx.warehouseStock.upsert({
             where: { warehouseId_productId: { warehouseId: BigInt(row.warehouseId), productId: product.id } },
-            update: { quantity },
+            update: { quantity: { increment: quantity } },
             create: { productId: product.id, warehouseId: BigInt(row.warehouseId), quantity },
           });
           await tx.inventoryMovement.create({
@@ -557,30 +605,56 @@ async function exportProductsBySeller({ userId, startDate, endDate }) {
   workbook.creator = 'SS_BACKEND';
   workbook.created = new Date();
 
-  const userWhere = userId ? { id: BigInt(userId), isActive: true } : { isActive: true };
-  const users = await prisma.user.findMany({
-    where: userWhere,
+  // Consultar productos directamente y agrupar por creador
+  const productWhere = {
+    isActive: true,
+    ...(userId ? { createdBy: BigInt(userId) } : {}),
+    ...(startDate || endDate ? {
+      createdAt: {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && { lte: endOfDay(endDate) }),
+      },
+    } : {}),
+  };
+
+  const products = await prisma.product.findMany({
+    where: productWhere,
     select: {
-      id: true, username: true, fullName: true,
-      warehouse: { select: { name: true } },
-      productsCreated: {
-        where: {
-          ...(startDate || endDate ? {
-            createdAt: {
-              ...(startDate && { gte: new Date(startDate) }),
-              ...(endDate && { lte: endOfDay(endDate) }),
-            },
-          } : {}),
+      id: true, sku: true, name: true, brand: true,
+      costPrice: true, salePrice: true, createdAt: true, createdBy: true,
+      category: { select: { name: true } },
+      unit: { select: { name: true, code: true } },
+      creator: {
+        select: {
+          id: true, username: true, fullName: true,
+          warehouse: { select: { name: true } },
         },
-        include: {
-          category: { select: { name: true } },
-          unit: { select: { name: true, code: true } },
-          warehouseStocks: { include: { warehouse: { select: { name: true, code: true } } } },
+      },
+      warehouseStocks: {
+        select: {
+          quantity: true,
+          warehouse: { select: { name: true, code: true } },
         },
-        orderBy: { createdAt: 'desc' },
       },
     },
-    orderBy: { fullName: 'asc' },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Agrupar por creador (key = createdBy string o 'sin-asignar')
+  const byCreator = new Map();
+  for (const p of products) {
+    const key = p.createdBy ? p.createdBy.toString() : 'sin-asignar';
+    if (!byCreator.has(key)) {
+      byCreator.set(key, { creator: p.creator, products: [] });
+    }
+    byCreator.get(key).products.push(p);
+  }
+
+  // Ordenar por nombre de creador
+  const groups = [...byCreator.values()].sort((a, b) => {
+    const nameA = (a.creator?.fullName || a.creator?.username || 'Sin asignar').toLowerCase();
+    const nameB = (b.creator?.fullName || b.creator?.username || 'Sin asignar').toLowerCase();
+    return nameA.localeCompare(nameB);
   });
 
   // Hoja resumen general
@@ -594,19 +668,20 @@ async function exportProductsBySeller({ userId, startDate, endDate }) {
   sHeaderRow.height = 22;
   let summaryRow = 5;
 
-  for (const user of users) {
-    if (user.productsCreated.length === 0) continue;
+  for (const group of groups) {
+    const { creator, products: groupProducts } = group;
+    const username = creator?.username || 'sin-usuario';
+    const fullName = creator?.fullName || creator?.username || 'Sin asignar';
+    const warehouseName = creator?.warehouse?.name || '';
 
-    summary.getRow(summaryRow).values = [
-      user.username, user.fullName || '', user.warehouse?.name || '', user.productsCreated.length,
-    ];
+    summary.getRow(summaryRow).values = [username, fullName, warehouseName, groupProducts.length];
     summaryRow++;
 
-    const sheetName = (user.fullName || user.username).substring(0, 31).replace(/[\\/?*[\]:]/g, '_');
+    const sheetName = fullName.substring(0, 31).replace(/[\\/?*[\]:]/g, '_');
     const ws = workbook.addWorksheet(sheetName);
-    addTitleRow(ws, `Productos publicados por: ${user.fullName || user.username}`, 10);
-    addInfoRow(ws, 'Usuario:', user.username, 2);
-    addInfoRow(ws, 'Almacén:', user.warehouse?.name || 'Sin almacén', 3);
+    addTitleRow(ws, `Productos publicados por: ${fullName}`, 10);
+    addInfoRow(ws, 'Usuario:', username, 2);
+    addInfoRow(ws, 'Almacén:', warehouseName || 'Sin almacén', 3);
 
     const headers = ['SKU', 'Nombre', 'Categoría', 'Unidad', 'Marca', 'Precio Costo', 'Precio Venta', 'Stock Global', 'Almacenes con Stock', 'Fecha Publicación'];
     const headerRow = ws.getRow(5);
@@ -614,9 +689,9 @@ async function exportProductsBySeller({ userId, startDate, endDate }) {
     headerRow.values = headers;
     headers.forEach((_, i) => applyHeaderStyle(headerRow.getCell(i + 1)));
 
-    user.productsCreated.forEach((p, idx) => {
-      const totalStock = p.warehouseStocks.reduce((s, ws) => s + fmtNum(ws.quantity), 0);
-      const warehouseNames = p.warehouseStocks.map(ws => ws.warehouse.name).join(', ');
+    groupProducts.forEach((p, idx) => {
+      const totalStock = p.warehouseStocks.reduce((s, st) => s + fmtNum(st.quantity), 0);
+      const warehouseNames = p.warehouseStocks.map(st => st.warehouse.name).join(', ');
       const row = ws.getRow(6 + idx);
       row.values = [
         p.sku, p.name, p.category?.name || '', p.unit?.code || '', p.brand || '',
@@ -629,9 +704,19 @@ async function exportProductsBySeller({ userId, startDate, endDate }) {
       }
     });
 
+    if (groupProducts.length === 0) {
+      ws.getCell('A6').value = 'Sin productos en el período seleccionado';
+      ws.getCell('A6').font = { italic: true, color: { argb: 'FF888888' } };
+    }
+
     [12, 35, 18, 8, 12, 14, 14, 12, 35, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5, column: headers.length } };
     ws.views = [{ state: 'frozen', ySplit: 5 }];
+  }
+
+  if (groups.length === 0) {
+    summary.getCell('A5').value = 'Sin registros en el período seleccionado';
+    summary.getCell('A5').font = { italic: true, color: { argb: 'FF888888' } };
   }
 
   [20, 30, 25, 18].forEach((w, i) => { summary.getColumn(i + 1).width = w; });
