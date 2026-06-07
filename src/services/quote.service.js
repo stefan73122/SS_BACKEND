@@ -118,7 +118,8 @@ async function getQuoteById(id) {
 }
 
 async function createQuote(data) {
-  const { clientId, createdBy, items, quoteType, paymentType, validUntil, notes, discount, paymentTerms } = data;
+  const { clientId, createdBy, items, quoteType, paymentType, validUntil, notes, discount, discountPercent, paymentTerms } = data;
+  const globalDiscountPct = parseFloat(discount ?? discountPercent ?? 0);
 
   const quoteNumber = await generateQuoteNumber();
 
@@ -153,7 +154,7 @@ async function createQuote(data) {
     });
   }
 
-  const discountAmount = discount ? (subtotal * discount) / 100 : 0;
+  const discountAmount = globalDiscountPct > 0 ? (subtotal * globalDiscountPct) / 100 : 0;
   const grandTotal = subtotal - discountAmount;
 
   // Calcular términos de pago si se proporcionan (para crédito)
@@ -212,7 +213,8 @@ async function createQuote(data) {
 }
 
 async function updateQuote(id, data) {
-  const { status, quoteType, paymentType, validUntil, notes, observations, discount, items, userId, warehouseId } = data;
+  const { status, quoteType, paymentType, validUntil, notes, observations, discount, discountPercent, items, userId, warehouseId } = data;
+  const globalDiscountPct = parseFloat(discount ?? discountPercent ?? 0);
 
   // Obtener cotización actual para verificar cambio de estado
   const currentQuote = await prisma.quote.findUnique({
@@ -278,7 +280,7 @@ async function updateQuote(id, data) {
       });
     }
 
-    const discountAmount = (discount || 0) ? (subtotal * (discount || 0)) / 100 : 0;
+    const discountAmount = globalDiscountPct > 0 ? (subtotal * globalDiscountPct) / 100 : 0;
     const grandTotal = subtotal - discountAmount;
 
     updateData.subtotal = subtotal;
