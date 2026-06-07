@@ -2,10 +2,18 @@ const prisma = require('../prisma/client');
 
 function normalizeServiceQuote(quote) {
   if (!quote) return quote;
+  const discountTotal = parseFloat(quote.discountTotal ?? 0);
+  const subtotal = parseFloat(quote.subtotal ?? 0);
+  const discountPercent = subtotal > 0 && discountTotal > 0
+    ? (discountTotal / subtotal) * 100
+    : 0;
   return {
     ...quote,
-    total: quote.grandTotal,
-    discount: quote.discountTotal,
+    subtotal,
+    discount: discountTotal,
+    discountPercent,
+    grandTotal: parseFloat(quote.grandTotal ?? 0),
+    total: parseFloat(quote.grandTotal ?? 0),
     items: (quote.items || []).map(item => ({
       ...item,
       total: item.lineTotal,
@@ -241,15 +249,23 @@ async function updateServiceQuote(id, data) {
     throw new Error('Esta no es una cotización de servicio');
   }
 
-  const { 
-    status, 
-    paymentType, 
-    validUntil, 
-    observations, 
-    termsConditions, 
+  const {
+    status,
+    paymentType,
+    validUntil,
+    observations,
+    termsConditions,
     items,
     version,
     discountPercent,
+    deliveryTime,
+    generalDescription,
+    responsibleName,
+    responsiblePosition,
+    responsiblePhone,
+    responsibleEmail,
+    salesExecutive,
+    cashPaymentPercentage,
   } = data;
 
   let updateData = {
@@ -259,6 +275,14 @@ async function updateServiceQuote(id, data) {
     ...(observations !== undefined && { observations }),
     ...(termsConditions !== undefined && { termsConditions }),
     ...(version !== undefined && { version }),
+    ...(deliveryTime !== undefined && { deliveryTime }),
+    ...(generalDescription !== undefined && { generalDescription }),
+    ...(responsibleName !== undefined && { responsibleName }),
+    ...(responsiblePosition !== undefined && { responsiblePosition }),
+    ...(responsiblePhone !== undefined && { responsiblePhone }),
+    ...(responsibleEmail !== undefined && { responsibleEmail }),
+    ...(salesExecutive !== undefined && { salesExecutive }),
+    ...(cashPaymentPercentage !== undefined && { cashPaymentPercentage: parseFloat(cashPaymentPercentage) || 0 }),
   };
 
   if (items && items.length > 0) {
