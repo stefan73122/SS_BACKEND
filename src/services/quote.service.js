@@ -3,10 +3,18 @@ const { montoALetras } = require('../utils/numberToWords');
 
 function normalizeQuote(quote) {
   if (!quote) return quote;
+  const discountTotal = parseFloat(quote.discountTotal ?? 0);
+  const subtotal = parseFloat(quote.subtotal ?? 0);
+  const discountPercent = subtotal > 0 && discountTotal > 0
+    ? (discountTotal / subtotal) * 100
+    : 0;
   return {
     ...quote,
-    total: quote.grandTotal,
-    discount: quote.discountTotal,
+    total: parseFloat(quote.grandTotal ?? 0),
+    grandTotal: parseFloat(quote.grandTotal ?? 0),
+    subtotal,
+    discount: discountTotal,
+    discountPercent,
     warehouseId: quote.warehouseId ? Number(quote.warehouseId) : null,
     items: (quote.items || []).map(item => ({
       ...item,
