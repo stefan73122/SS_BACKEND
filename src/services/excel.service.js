@@ -50,7 +50,7 @@ async function importProductsFromExcel(filePath) {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
     const worksheet = workbook.worksheets[0];
-    const data = worksheetToJson(worksheet, 1);
+    const data = worksheetToJson(worksheet, 2);
 
     const results = { success: [], errors: [], total: data.length };
 
