@@ -472,7 +472,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
               previousQty = existingStock.quantity;
               await prisma.warehouseStock.update({
                 where: { id: existingStock.id },
-                data: { quantity: finalQty },
+                data: { quantity: { increment: finalQty } },
               });
             } else {
               await prisma.warehouseStock.create({
