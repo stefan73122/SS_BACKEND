@@ -1,0 +1,26 @@
+databases:
+  - name: ss-backend-db
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: ss-backend
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ss-backend-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGINS
+        sync: false
