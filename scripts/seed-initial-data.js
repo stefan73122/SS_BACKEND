@@ -147,6 +147,10 @@ async function seedInitialData() {
       { code: 'credits.manage',    description: 'Gestionar pagos a crédito',   module: 'Créditos' },
       { code: 'credits.mark-paid', description: 'Marcar pagos como pagados',   module: 'Créditos' },
 
+      // ── Tipo de Cambio (Dólar Paralelo) ──────────────────────────────────
+      { code: 'exchange-rate.view',   description: 'Ver tipo de cambio vigente e histórico', module: 'Tipo de Cambio' },
+      { code: 'exchange-rate.manage', description: 'Registrar o actualizar el tipo de cambio', module: 'Tipo de Cambio' },
+
       // ── Punto de Venta ────────────────────────────────────────────────────
       { code: 'pos.access',         description: 'Acceder al punto de venta',  module: 'Punto de Venta' },
       { code: 'pos.create-sale',    description: 'Crear ventas',               module: 'Punto de Venta' },
@@ -217,6 +221,9 @@ async function seedInitialData() {
       'products.view',
       'products.stock',
 
+      // Tipo de cambio: solo consulta, para saber a qué TC está cotizando
+      'exchange-rate.view',
+
       // Kits: solo ver para armar cotizaciones — no los administra
       'kits.view',
 
@@ -278,6 +285,7 @@ async function seedInitialData() {
       'reports.inventory',
       'reports.warehouses',
       'reports.products',
+      'exchange-rate.view',
     ];
     const bodegueroPermissions = filterByPrefixes(bodegueroPrefixes);
 

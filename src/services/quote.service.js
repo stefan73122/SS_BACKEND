@@ -1,5 +1,6 @@
 const prisma = require('../prisma/client');
 const { montoALetras } = require('../utils/numberToWords');
+const exchangeRateService = require('./exchangeRate.service');
 
 function normalizeQuote(quote) {
   if (!quote) return quote;
@@ -15,6 +16,7 @@ function normalizeQuote(quote) {
     subtotal,
     discount: discountTotal,
     discountPercent,
+    exchangeRate: quote.exchangeRate != null ? parseFloat(quote.exchangeRate) : null,
     warehouseId: quote.warehouseId ? Number(quote.warehouseId) : null,
     items: (quote.items || []).map(item => ({
       ...item,
@@ -157,6 +159,11 @@ async function createQuote(data) {
   const discountAmount = globalDiscountPct > 0 ? (subtotal * globalDiscountPct) / 100 : 0;
   const grandTotal = subtotal - discountAmount;
 
+  // Congelar el TC paralelo vigente en la cotización: si el dólar sube mañana,
+  // esta cotización ya emitida no debe cambiar de monto.
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+  const exchangeRate = currentRate?.rate ?? null;
+
   // Calcular términos de pago si se proporcionan (para crédito)
   let paymentTermsData = undefined;
   if (paymentTerms && Array.isArray(paymentTerms) && paymentTerms.length > 0) {
@@ -191,6 +198,7 @@ async function createQuote(data) {
       discountTotal: discountAmount,
       subtotal,
       grandTotal,
+      exchangeRate,
       items: {
         create: itemsData,
       },

@@ -1,4 +1,17 @@
 const prisma = require('../prisma/client');
+const exchangeRateService = require('./exchangeRate.service');
+
+function withAdjustedPrice(product, currentRate) {
+  const referenceExchangeRate = product.referenceExchangeRate != null ? parseFloat(product.referenceExchangeRate) : null;
+  const rate = currentRate?.rate ?? null;
+
+  return {
+    ...product,
+    exchangeRateApplied: rate,
+    salePriceAdjusted: exchangeRateService.applyRate(product.salePrice, referenceExchangeRate, rate),
+    costPriceAdjusted: exchangeRateService.applyRate(product.costPrice, referenceExchangeRate, rate),
+  };
+}
 
 async function getAllProducts({ page = 1, limit = 10, search = '', categoryId = null }) {
   const pageNum = parseInt(page) || 1;
@@ -36,14 +49,16 @@ async function getAllProducts({ page = 1, limit = 10, search = '', categoryId = 
     prisma.product.count({ where }),
   ]);
 
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+
   // Transformar productos para compatibilidad con frontend
-  const transformedProducts = products.map(product => ({
+  const transformedProducts = products.map(product => withAdjustedPrice({
     ...product,
     id: product.id.toString(),
     categoryId: product.categoryId ? product.categoryId.toString() : null,
     unitId: product.unitId.toString(),
     minStock: product.minStockGlobal, // Mapear minStockGlobal a minStock
-  }));
+  }, currentRate));
 
   return {
     products: transformedProducts,
@@ -91,14 +106,16 @@ async function getProductById(id) {
     throw new Error('Producto no encontrado');
   }
 
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+
   // Transformar para compatibilidad con frontend
-  return {
+  return withAdjustedPrice({
     ...product,
     id: product.id.toString(),
     categoryId: product.categoryId ? product.categoryId.toString() : null,
     unitId: product.unitId.toString(),
     minStock: product.minStockGlobal, // Mapear minStockGlobal a minStock
-  };
+  }, currentRate);
 }
 
 async function createProduct(data, userId = null) {
@@ -119,6 +136,14 @@ async function createProduct(data, userId = null) {
 
   if (existingProduct) {
     throw new Error('Ya existe un producto con ese SKU');
+  }
+
+  // El precio en Bs se fija hoy: se guarda el TC paralelo vigente como referencia,
+  // para poder reajustar el precio si el dólar se mueve más adelante.
+  let referenceExchangeRate = data.referenceExchangeRate != null ? parseFloat(data.referenceExchangeRate) : null;
+  if (referenceExchangeRate == null && (costPrice != null || salePrice != null)) {
+    const currentRate = await exchangeRateService.getCurrentRateOrNull();
+    referenceExchangeRate = currentRate?.rate ?? null;
   }
 
   // Resolver almacén: usar el explícito del body o el almacén asignado al usuario
@@ -144,6 +169,7 @@ async function createProduct(data, userId = null) {
       unitId: BigInt(unitId),
       costPrice,
       salePrice,
+      referenceExchangeRate,
       minStockGlobal: minStock || 0,
       ...(brand !== undefined && { brand }),
       ...(origin !== undefined && { origin }),
@@ -210,11 +236,20 @@ async function updateProduct(id, data) {
     : data.codigoFabricante !== undefined ? data.codigoFabricante
     : data.codigo_fabricante;
 
+  // Si se actualiza el precio en Bs, se asume que se fijó al TC de hoy —
+  // salvo que el cliente mande explícitamente el TC de referencia a usar.
+  let referenceExchangeRate = data.referenceExchangeRate != null ? parseFloat(data.referenceExchangeRate) : undefined;
+  if (referenceExchangeRate === undefined && (costPrice !== undefined || salePrice !== undefined)) {
+    const currentRate = await exchangeRateService.getCurrentRateOrNull();
+    referenceExchangeRate = currentRate?.rate ?? undefined;
+  }
+
   const updateData = {
     ...(name && { name }),
     ...(description !== undefined && { description }),
     ...(costPrice !== undefined && { costPrice }),
     ...(salePrice !== undefined && { salePrice }),
+    ...(referenceExchangeRate !== undefined && { referenceExchangeRate }),
     ...(minStock !== undefined && { minStockGlobal: minStock }),
     ...(brand !== undefined && { brand }),
     ...(origin !== undefined && { origin }),
@@ -247,14 +282,16 @@ async function updateProduct(id, data) {
     },
   });
 
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+
   // Transformar para compatibilidad con frontend
-  return {
+  return withAdjustedPrice({
     ...product,
     id: product.id.toString(),
     categoryId: product.categoryId ? product.categoryId.toString() : null,
     unitId: product.unitId.toString(),
     minStock: product.minStockGlobal, // Mapear minStockGlobal a minStock
-  };
+  }, currentRate);
 }
 
 async function deleteProduct(id, userId = null) {

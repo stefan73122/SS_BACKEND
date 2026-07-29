@@ -1,4 +1,5 @@
 const prisma = require('../prisma/client');
+const exchangeRateService = require('./exchangeRate.service');
 
 function normalizeServiceQuote(quote) {
   if (!quote) return quote;
@@ -14,6 +15,7 @@ function normalizeServiceQuote(quote) {
     discountPercent,
     grandTotal: parseFloat(quote.grandTotal ?? 0),
     total: parseFloat(quote.grandTotal ?? 0),
+    exchangeRate: quote.exchangeRate != null ? parseFloat(quote.exchangeRate) : null,
     items: (quote.items || []).map(item => ({
       ...item,
       total: item.lineTotal,
@@ -191,6 +193,10 @@ async function createServiceQuote(data) {
   const globalDiscountAmount = discountPercent ? (subtotal * parseFloat(discountPercent)) / 100 : 0;
   const grandTotal = subtotal - globalDiscountAmount;
 
+  // Congelar el TC paralelo vigente en la cotización de servicio.
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+  const exchangeRate = currentRate?.rate ?? null;
+
   const quote = await prisma.quote.create({
     data: {
       quoteNumber,
@@ -207,6 +213,7 @@ async function createServiceQuote(data) {
       discountTotal: globalDiscountAmount,
       taxTotal: 0,
       grandTotal,
+      exchangeRate,
       items: {
         create: itemsData,
       },

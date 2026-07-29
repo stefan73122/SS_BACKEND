@@ -16,6 +16,11 @@ datasource db {
 
 // ─── ENUMS ───────────────────────────────────────────────────────────────────
 
+enum ExchangeRateSource {
+  MANUAL
+  BINANCE_P2P
+}
+
 enum ClientType {
   REGULAR
   PREFERENCIAL
@@ -178,6 +183,7 @@ model User {
   notifications         Notification[]
   productsCreated       Product[]      @relation("ProductCreatedBy")
   productsDeleted       Product[]      @relation("ProductDeletedBy")
+  exchangeRatesSet      ExchangeRate[]
 
   @@map("users")
 }
@@ -303,6 +309,23 @@ model Unit {
   @@map("units")
 }
 
+// ─── TIPO DE CAMBIO (DÓLAR PARALELO) ──────────────────────────────────────────
+
+model ExchangeRate {
+  id           BigInt             @id @default(autoincrement())
+  rate         Decimal            @db.Decimal(10, 4) @map("rate")
+  officialRate Decimal?           @map("official_rate") @db.Decimal(10, 4)
+  source       ExchangeRateSource @default(MANUAL)
+  note         String?            @db.VarChar(255)
+  createdBy    BigInt?            @map("created_by")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  creator User? @relation(fields: [createdBy], references: [id])
+
+  @@index([createdAt], map: "idx_exchange_rates_created_at")
+  @@map("exchange_rates")
+}
+
 model Product {
   id                BigInt    @id @default(autoincrement())
   sku               String    @unique @db.VarChar(50)
@@ -313,6 +336,7 @@ model Product {
   unitId            BigInt    @map("unit_id")
   costPrice         Decimal?  @map("cost_price") @db.Decimal(14, 2)
   salePrice         Decimal?  @map("sale_price") @db.Decimal(14, 2)
+  referenceExchangeRate Decimal? @map("reference_exchange_rate") @db.Decimal(10, 4)
   brand             String?   @db.VarChar(100)
   origin            String?   @db.VarChar(100)
   manufacturerCode  String?   @map("manufacturer_code") @db.VarChar(100)
@@ -480,6 +504,7 @@ model Quote {
   validUntil            DateTime?   @map("valid_until") @db.Date
   issueDate             DateTime    @default(now()) @map("issue_date") @db.Date
   currency              String      @default("BOB") @db.VarChar(10)
+  exchangeRate          Decimal?    @map("exchange_rate") @db.Decimal(10, 4)
   subtotal              Decimal     @default(0) @db.Decimal(14, 2)
   taxTotal              Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
   discountTotal         Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)

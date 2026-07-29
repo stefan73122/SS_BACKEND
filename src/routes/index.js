@@ -19,6 +19,7 @@ const creditRoutes = require('./credit.routes');
 const healthRoutes = require('./health.routes');
 const notificationRoutes = require('./notification.routes');
 const serviceRoutes = require('./service.routes');
+const exchangeRateRoutes = require('./exchangeRate.routes');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -43,6 +44,7 @@ router.use('/units', unitRoutes);
 router.use('/credits', creditRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/services', serviceRoutes);
+router.use('/exchange-rate', exchangeRateRoutes);
 
 router.get('/profile', authMiddleware, (req, res) => {
   res.json({ message: 'Perfil del usuario', userId: req.userId });
