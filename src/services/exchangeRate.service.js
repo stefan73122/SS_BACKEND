@@ -10,6 +10,7 @@ function serializeRate(rate) {
     rate: parseFloat(rate.rate),
     officialRate: rate.officialRate != null ? parseFloat(rate.officialRate) : null,
     createdBy: rate.createdBy != null ? rate.createdBy.toString() : null,
+    creator: rate.creator ? { ...rate.creator, id: rate.creator.id.toString() } : rate.creator,
   };
 }
 
