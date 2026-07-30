@@ -35,7 +35,7 @@ async function refreshAutomaticRate(req, res) {
     const rate = await exchangeRateService.refreshAutomaticRate(userId);
     res.status(201).json(rate);
   } catch (error) {
-    res.status(502).json({ error: `No se pudo obtener el tipo de cambio automático: ${error.message}` });
+    res.status(502).json({ error: `No se pudo obtener el tipo de cambio del BCB: ${error.message}` });
   }
 }
 

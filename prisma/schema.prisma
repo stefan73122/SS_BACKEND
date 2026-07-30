@@ -19,6 +19,7 @@ datasource db {
 enum ExchangeRateSource {
   MANUAL
   BINANCE_P2P
+  BCB_OFICIAL
 }
 
 enum ClientType {

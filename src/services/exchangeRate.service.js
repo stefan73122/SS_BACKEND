@@ -1,6 +1,6 @@
 const prisma = require('../prisma/client');
 
-const BINANCE_P2P_URL = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search';
+const BCB_OFICIAL_URL = 'https://apibcb.cucu.bo/api/v1/tc/oficial';
 
 function serializeRate(rate) {
   if (!rate) return null;
@@ -87,52 +87,37 @@ async function setManualRate({ rate, officialRate, note }, userId) {
   return serializeRate(created);
 }
 
-// Consulta la API pública de Binance P2P (par USDT/BOB) y promedia las
-// primeras ofertas de venta (comerciantes vendiendo USDT, que es el precio
-// al que la gente compra dólares) para aproximar el paralelo del día.
-async function fetchBinanceP2PRate() {
-  const body = {
-    asset: 'USDT',
-    fiat: 'BOB',
-    tradeType: 'SELL',
-    page: 1,
-    rows: 10,
-    payTypes: [],
-    publisherType: null,
-  };
-
-  const response = await fetch(BINANCE_P2P_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+// Consulta la API pública del Banco Central de Bolivia (vía apibcb.cucu.bo)
+// para obtener el tipo de cambio oficial vigente publicado por el BCB.
+async function fetchOfficialRate() {
+  const response = await fetch(BCB_OFICIAL_URL, {
     signal: AbortSignal.timeout(10000),
   });
 
   if (!response.ok) {
-    throw new Error(`Binance P2P respondió con estado ${response.status}`);
+    throw new Error(`API del BCB respondió con estado ${response.status}`);
   }
 
   const json = await response.json();
-  const offers = (json?.data || [])
-    .map((entry) => parseFloat(entry?.adv?.price))
-    .filter((price) => Number.isFinite(price) && price > 0);
+  const tcOficial = json?.tc_oficial;
+  const rate = parseFloat(tcOficial?.valor ?? tcOficial?.base);
 
-  if (offers.length === 0) {
-    throw new Error('Binance P2P no devolvió ofertas válidas');
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error('La API del BCB no devolvió un tipo de cambio válido');
   }
 
-  const average = offers.reduce((sum, price) => sum + price, 0) / offers.length;
-  return Math.round(average * 10000) / 10000;
+  return { rate, fecha: tcOficial?.fecha || null };
 }
 
 async function refreshAutomaticRate(userId) {
-  const rate = await fetchBinanceP2PRate();
+  const { rate, fecha } = await fetchOfficialRate();
 
   const created = await prisma.exchangeRate.create({
     data: {
       rate,
-      source: 'BINANCE_P2P',
-      note: 'Promedio de ofertas de venta USDT/BOB en Binance P2P',
+      officialRate: rate,
+      source: 'BCB_OFICIAL',
+      note: fecha ? `Tipo de cambio oficial BCB del ${fecha}` : 'Tipo de cambio oficial del Banco Central de Bolivia',
       createdBy: userId ? BigInt(userId) : null,
     },
   });
