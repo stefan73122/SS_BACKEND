@@ -1,15 +1,20 @@
 const prisma = require('../prisma/client');
 const exchangeRateService = require('./exchangeRate.service');
 
+// Los precios del producto (costPrice/salePrice) se guardan siempre en USD.
+// El valor en bolivianos se calcula al vuelo con el TC vigente, nunca se persiste.
 function withAdjustedPrice(product, currentRate) {
-  const referenceExchangeRate = product.referenceExchangeRate != null ? parseFloat(product.referenceExchangeRate) : null;
   const rate = currentRate?.rate ?? null;
 
   return {
     ...product,
+    priceCurrency: 'USD',
     exchangeRateApplied: rate,
-    salePriceAdjusted: exchangeRateService.applyRate(product.salePrice, referenceExchangeRate, rate),
-    costPriceAdjusted: exchangeRateService.applyRate(product.costPrice, referenceExchangeRate, rate),
+    costPriceUsd: product.costPrice != null ? parseFloat(product.costPrice) : null,
+    salePriceUsd: product.salePrice != null ? parseFloat(product.salePrice) : null,
+    // Se mantienen estos nombres por compatibilidad con el frontend existente.
+    costPriceAdjusted: exchangeRateService.convertUsdToBob(product.costPrice, rate),
+    salePriceAdjusted: exchangeRateService.convertUsdToBob(product.salePrice, rate),
   };
 }
 
@@ -138,8 +143,8 @@ async function createProduct(data, userId = null) {
     throw new Error('Ya existe un producto con ese SKU');
   }
 
-  // El precio en Bs se fija hoy: se guarda el TC paralelo vigente como referencia,
-  // para poder reajustar el precio si el dólar se mueve más adelante.
+  // costPrice/salePrice se ingresan y guardan en USD. Se registra el TC vigente
+  // al momento del alta solo como referencia histórica (no se usa para recalcular).
   let referenceExchangeRate = data.referenceExchangeRate != null ? parseFloat(data.referenceExchangeRate) : null;
   if (referenceExchangeRate == null && (costPrice != null || salePrice != null)) {
     const currentRate = await exchangeRateService.getCurrentRateOrNull();
@@ -224,7 +229,14 @@ async function createProduct(data, userId = null) {
     },
   }).catch(() => {});
 
-  return product;
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+  return withAdjustedPrice({
+    ...product,
+    id: product.id.toString(),
+    categoryId: product.categoryId ? product.categoryId.toString() : null,
+    unitId: product.unitId.toString(),
+    minStock: product.minStockGlobal,
+  }, currentRate);
 }
 
 async function updateProduct(id, data) {
@@ -236,8 +248,8 @@ async function updateProduct(id, data) {
     : data.codigoFabricante !== undefined ? data.codigoFabricante
     : data.codigo_fabricante;
 
-  // Si se actualiza el precio en Bs, se asume que se fijó al TC de hoy —
-  // salvo que el cliente mande explícitamente el TC de referencia a usar.
+  // Si se actualiza el precio en USD, se registra el TC vigente como referencia
+  // histórica — salvo que el cliente mande explícitamente el TC a usar.
   let referenceExchangeRate = data.referenceExchangeRate != null ? parseFloat(data.referenceExchangeRate) : undefined;
   if (referenceExchangeRate === undefined && (costPrice !== undefined || salePrice !== undefined)) {
     const currentRate = await exchangeRateService.getCurrentRateOrNull();

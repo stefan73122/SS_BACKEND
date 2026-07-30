@@ -31,13 +31,14 @@ async function getCurrentRateOrNull() {
   return serializeRate(rate);
 }
 
-// Reajusta un precio fijado en Bs a un TC de referencia, según cuánto se
-// movió el paralelo desde entonces. Si falta algún TC, devuelve el precio base.
-function applyRate(basePrice, referenceRate, currentRate) {
-  if (basePrice == null) return null;
-  const base = parseFloat(basePrice);
-  if (!referenceRate || !currentRate) return base;
-  return Math.round(base * (currentRate / parseFloat(referenceRate)) * 100) / 100;
+// Convierte un precio guardado en USD a bolivianos usando el TC vigente.
+// Los productos se registran y guardan siempre en dólares; el valor en Bs
+// se calcula al vuelo con el tipo de cambio actual, nunca se persiste.
+function convertUsdToBob(usdAmount, currentRate) {
+  if (usdAmount == null) return null;
+  const amount = parseFloat(usdAmount);
+  if (!currentRate) return null;
+  return Math.round(amount * parseFloat(currentRate) * 100) / 100;
 }
 
 async function getHistory({ page = 1, limit = 20 } = {}) {
@@ -131,5 +132,5 @@ module.exports = {
   getHistory,
   setManualRate,
   refreshAutomaticRate,
-  applyRate,
+  convertUsdToBob,
 };

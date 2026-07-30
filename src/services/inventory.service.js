@@ -1,5 +1,6 @@
 const prisma = require('../prisma/client');
 const { createLowStockNotification } = require('./notification.service');
+const exchangeRateService = require('./exchangeRate.service');
 
 async function getAllWarehouses() {
   const warehouses = await prisma.warehouse.findMany({
@@ -238,6 +239,9 @@ async function getInventory({ page = 1, limit = 10, search = '', categoryId = nu
     prisma.product.count({ where }),
   ]);
 
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+  const rate = currentRate?.rate ?? null;
+
   // Calcular totales y formatear datos
   const inventory = products.map(product => {
     const totalStock = product.warehouseStocks.reduce((sum, s) => sum + parseFloat(s.quantity), 0);
@@ -250,8 +254,11 @@ async function getInventory({ page = 1, limit = 10, search = '', categoryId = nu
 
     return {
       ...product,
+      priceCurrency: 'USD',
       costPrice: product.costPrice || 0,
       salePrice: product.salePrice || 0,
+      costPriceBs: exchangeRateService.convertUsdToBob(product.costPrice, rate),
+      salePriceBs: exchangeRateService.convertUsdToBob(product.salePrice, rate),
       totalStock,
       stockByWarehouse,
       isLowStock: product.minStockGlobal ? totalStock <= product.minStockGlobal : false,

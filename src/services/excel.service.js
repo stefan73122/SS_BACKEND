@@ -62,8 +62,8 @@ async function importProductsFromExcel(filePath) {
         name: row.NOMBRE || row.name,
         sku: row.SKU || row.sku,
         description: row.DESCRIPCION || row.description,
-        costPrice: row.PRECIO_COSTO || row.costPrice,
-        salePrice: row.PRECIO_VENTA || row.salePrice,
+        costPrice: row.PRECIO_COSTO_USD || row.PRECIO_COSTO || row.costPrice,
+        salePrice: row.PRECIO_VENTA_USD || row.PRECIO_VENTA || row.salePrice,
         minStock: row.STOCK_MIN || row['STOCK MIN'] || row.minStock,
         categoryId: row.CATEGORIA || row.categoryId,
         unitName: row.UNIDAD || row.unitName || row.unitId,
@@ -343,7 +343,7 @@ function generateProductsTemplate() {
   });
 
   // Fila 6: Encabezados
-  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO', 'PRECIO_VENTA', 'STOCK_MIN', 'CANTIDAD', 'ALMACEN', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
+  const headers = ['NOMBRE', 'SKU', 'DESCRIPCION', 'PRECIO_COSTO_USD', 'PRECIO_VENTA_USD', 'STOCK_MIN', 'CANTIDAD', 'ALMACEN', 'CATEGORIA', 'UNIDAD', 'MARCA', 'PROVEEDOR'];
   const headerRow = worksheet.getRow(6);
   headers.forEach((header, i) => {
     const cell = headerRow.getCell(i + 1);
@@ -532,7 +532,7 @@ async function exportProductsByWarehouse({ warehouseId, startDate, endDate }) {
     const sheetName = warehouse.name.substring(0, 31).replace(/[\\/?*[\]:]/g, '_');
     const ws = workbook.addWorksheet(sheetName);
 
-    const headers = ['SKU', 'Nombre', 'Categoría', 'Unidad', 'Marca', 'Precio Costo', 'Precio Venta', 'Stock Actual', 'Stock Mínimo', 'Publicado por', 'Fecha Creación'];
+    const headers = ['SKU', 'Nombre', 'Categoría', 'Unidad', 'Marca', 'Precio Costo (USD)', 'Precio Venta (USD)', 'Stock Actual', 'Stock Mínimo', 'Publicado por', 'Fecha Creación'];
     addTitleRow(ws, `Inventario - ${warehouse.name}`, headers.length);
 
     ws.getCell('A2').value = 'Almacén:'; ws.getCell('A2').font = { bold: true };
@@ -683,7 +683,7 @@ async function exportProductsBySeller({ userId, startDate, endDate }) {
     addInfoRow(ws, 'Usuario:', username, 2);
     addInfoRow(ws, 'Almacén:', warehouseName || 'Sin almacén', 3);
 
-    const headers = ['SKU', 'Nombre', 'Categoría', 'Unidad', 'Marca', 'Precio Costo', 'Precio Venta', 'Stock Global', 'Almacenes con Stock', 'Fecha Publicación'];
+    const headers = ['SKU', 'Nombre', 'Categoría', 'Unidad', 'Marca', 'Precio Costo (USD)', 'Precio Venta (USD)', 'Stock Global', 'Almacenes con Stock', 'Fecha Publicación'];
     const headerRow = ws.getRow(5);
     headerRow.height = 24;
     headerRow.values = headers;
@@ -898,7 +898,7 @@ async function exportProductsGeneral({ startDate, endDate, includeInactive = fal
   const ws = workbook.addWorksheet('Todos los Productos');
   const headers = [
     'SKU', 'Nombre', 'Descripción', 'Categoría', 'Unidad', 'Marca', 'Origen',
-    'Precio Costo', 'Precio Venta', 'Stock Total', 'Stock Mínimo Global',
+    'Precio Costo (USD)', 'Precio Venta (USD)', 'Stock Total', 'Stock Mínimo Global',
     'Almacenes', 'Estado', 'Publicado por', 'Eliminado por',
     'Fecha Publicación', 'Fecha Eliminación',
   ];

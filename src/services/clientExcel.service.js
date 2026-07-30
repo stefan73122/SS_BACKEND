@@ -1,5 +1,6 @@
 const ExcelJS = require('exceljs');
 const prisma = require('../prisma/client');
+const exchangeRateService = require('./exchangeRate.service');
 
 function getCellValue(cell) {
   const v = cell.value;
@@ -163,8 +164,8 @@ async function previewImportFromClientExcel(filePath) {
  * - CODIGO FABRICANTE → manufacturerCode
  * - CODIGO → sku
  * - NOMBRE → name
- * - PRECIO DE COMPRA → costPrice
- * - PRECIO DE VENTA → salePrice
+ * - PRECIO DE COMPRA → costPrice (en USD)
+ * - PRECIO DE VENTA → salePrice (en USD)
  * - CANTIDAD → stock inicial
  * - MARCA → brand (campo de texto)
  * - PROVEEDOR → supplier (buscar o crear)
@@ -215,6 +216,11 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
       created: 0,
       updated: 0,
     };
+
+    // TC vigente al momento de la importación: se guarda como referencia
+    // histórica en cada producto (los precios de compra/venta se ingresan en USD).
+    const currentRate = await exchangeRateService.getCurrentRateOrNull();
+    const referenceExchangeRate = currentRate?.rate ?? null;
 
     // Debug: ver nombres de columnas del primer registro
     if (data.length > 0) {
@@ -372,6 +378,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           description: observaciones || null,
           costPrice: precioCompra ? parseFloat(precioCompra) : null,
           salePrice: precioVenta ? parseFloat(precioVenta) : null,
+          ...((precioCompra || precioVenta) && referenceExchangeRate != null ? { referenceExchangeRate } : {}),
           brand: marca || null,
           origin: procedencia || null,
           manufacturerCode: codigoFabricante || null,
