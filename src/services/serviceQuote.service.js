@@ -125,9 +125,8 @@ async function createServiceQuote(data) {
     items, 
     paymentType, 
     validUntil, 
-    observations, 
+    observations,
     termsConditions,
-    version,
     deliveryTime,
     generalDescription,
     responsibleName,
@@ -200,7 +199,6 @@ async function createServiceQuote(data) {
   const quote = await prisma.quote.create({
     data: {
       quoteNumber,
-      version: version || 1,
       clientId: BigInt(clientId),
       createdBy: BigInt(createdBy),
       status: 'PENDIENTE',
@@ -256,6 +254,10 @@ async function updateServiceQuote(id, data) {
     throw new Error('Esta no es una cotización de servicio');
   }
 
+  if (existingQuote.versionStatus === 'REEMPLAZADA') {
+    throw new Error('No se puede modificar una versión reemplazada; edite la versión vigente.');
+  }
+
   const {
     status,
     paymentType,
@@ -263,7 +265,6 @@ async function updateServiceQuote(id, data) {
     observations,
     termsConditions,
     items,
-    version,
     discountPercent,
     deliveryTime,
     generalDescription,
@@ -281,7 +282,6 @@ async function updateServiceQuote(id, data) {
     ...(validUntil !== undefined && { validUntil: validUntil ? new Date(validUntil) : null }),
     ...(observations !== undefined && { observations }),
     ...(termsConditions !== undefined && { termsConditions }),
-    ...(version !== undefined && { version }),
     ...(deliveryTime !== undefined && { deliveryTime }),
     ...(generalDescription !== undefined && { generalDescription }),
     ...(responsibleName !== undefined && { responsibleName }),

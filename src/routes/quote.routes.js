@@ -11,6 +11,8 @@ router.get('/',                      requirePermission('quotes.view'),         q
 router.get('/:id',                   requirePermission('quotes.view'),         quoteController.getById);
 router.get('/:id/check-stock',       requirePermission('quotes.view'),         quoteController.checkStock);
 router.get('/:id/receipt',           requirePermission('quotes.view'),         quoteController.getReceipt);
+router.get('/:id/versions',          requirePermission('quotes.view'),         quoteController.getVersions);
+router.post('/:id/versions',         requirePermission('quotes.update'),       quoteController.createVersion);
 router.post('/',                     requirePermission('quotes.create'),       quoteController.create);
 router.put('/:id',                   requirePermission('quotes.update'),       quoteController.update);
 router.delete('/:id',                requirePermission('quotes.delete'),       quoteController.remove);

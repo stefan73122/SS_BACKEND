@@ -89,6 +89,33 @@ async function updateItemPrice(req, res) {
   }
 }
 
+async function createVersion(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId || req.user?.id;
+    const quote = await quoteService.createQuoteVersion(id, userId);
+    res.status(201).json(serializeBigInt(quote));
+  } catch (error) {
+    if (error.message === 'Cotización no encontrada') {
+      return res.status(404).json({ error: error.message });
+    }
+    res.status(400).json({ error: error.message });
+  }
+}
+
+async function getVersions(req, res) {
+  try {
+    const { id } = req.params;
+    const versions = await quoteService.getQuoteVersions(id);
+    res.json(serializeBigInt(versions));
+  } catch (error) {
+    if (error.message === 'Cotización no encontrada') {
+      return res.status(404).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   getAll,
   getById,
@@ -98,4 +125,6 @@ module.exports = {
   checkStock,
   getReceipt,
   updateItemPrice,
+  createVersion,
+  getVersions,
 };

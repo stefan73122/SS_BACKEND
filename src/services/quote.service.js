@@ -240,6 +240,10 @@ async function updateQuote(id, data) {
     throw new Error('Cotización no encontrada');
   }
 
+  if (currentQuote.versionStatus === 'REEMPLAZADA') {
+    throw new Error('No se puede modificar una versión reemplazada; edite la versión vigente.');
+  }
+
   // Observations: acepta tanto 'observations' directo como 'notes' (alias)
   const observationsValue = observations !== undefined ? observations : (notes !== undefined ? notes : undefined);
 
@@ -606,6 +610,15 @@ async function updateItemPrice(itemId, { unitPrice, discount, quantity }) {
 
   if (!item) throw new Error('Ítem no encontrado');
 
+  const parentQuote = await prisma.quote.findUnique({
+    where: { id: item.quoteId },
+    select: { versionStatus: true },
+  });
+
+  if (parentQuote?.versionStatus === 'REEMPLAZADA') {
+    throw new Error('No se puede modificar una versión reemplazada; edite la versión vigente.');
+  }
+
   const newUnitPrice = unitPrice !== undefined ? parseFloat(unitPrice) : parseFloat(item.unitPrice);
   const newDiscount  = discount  !== undefined ? parseFloat(discount)  : parseFloat(item.discount);
   const newQuantity  = quantity  !== undefined ? parseFloat(quantity)  : parseFloat(item.quantity);
@@ -645,6 +658,153 @@ async function updateItemPrice(itemId, { unitPrice, discount, quantity }) {
   return normalizeQuote(updatedQuote);
 }
 
+async function createQuoteVersion(quoteId, userId) {
+  const quote = await prisma.quote.findUnique({
+    where: { id: BigInt(quoteId) },
+    include: {
+      items: {
+        include: { details: true, hiddenCosts: true },
+        orderBy: { sortOrder: 'asc' },
+      },
+      paymentTerms: { orderBy: { installmentNumber: 'asc' } },
+    },
+  });
+
+  if (!quote) {
+    throw new Error('Cotización no encontrada');
+  }
+
+  if (quote.versionStatus !== 'VIGENTE') {
+    throw new Error('Solo se puede editar la versión vigente de esta cotización');
+  }
+
+  if (quote.status === 'APROBADA') {
+    throw new Error('No se puede editar una cotización ya aprobada (el inventario ya fue descontado)');
+  }
+
+  const rootId = quote.rootQuoteId ?? quote.id;
+
+  // Congelar el TC vigente al momento de crear esta nueva versión.
+  const currentRate = await exchangeRateService.getCurrentRateOrNull();
+  const exchangeRate = currentRate?.rate ?? null;
+
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 7);
+
+  const newVersion = await prisma.$transaction(async (tx) => {
+    const created = await tx.quote.create({
+      data: {
+        quoteNumber: quote.quoteNumber,
+        version: quote.version + 1,
+        versionStatus: 'VIGENTE',
+        rootQuoteId: rootId,
+        previousVersionId: quote.id,
+        clientId: quote.clientId,
+        createdBy: BigInt(userId),
+        status: 'PENDIENTE',
+        quoteType: quote.quoteType,
+        paymentType: quote.paymentType,
+        cashPaymentPercentage: quote.cashPaymentPercentage,
+        validUntil,
+        issueDate: new Date(),
+        currency: quote.currency,
+        exchangeRate,
+        subtotal: quote.subtotal,
+        taxTotal: quote.taxTotal,
+        discountTotal: quote.discountTotal,
+        grandTotal: quote.grandTotal,
+        termsConditions: quote.termsConditions,
+        observations: quote.observations,
+        warehouseId: quote.warehouseId,
+        items: {
+          create: quote.items.map(item => ({
+            itemType: item.itemType,
+            productId: item.productId,
+            kitId: item.kitId,
+            serviceCode: item.serviceCode,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            unitPriceBase: item.unitPriceBase,
+            discount: item.discount,
+            taxPercent: item.taxPercent,
+            lineTotal: item.lineTotal,
+            sortOrder: item.sortOrder,
+            isKit: item.isKit,
+            details: item.details.length > 0 ? {
+              create: item.details.map(d => ({ description: d.description, sortOrder: d.sortOrder })),
+            } : undefined,
+            hiddenCosts: item.hiddenCosts.length > 0 ? {
+              create: item.hiddenCosts.map(c => ({
+                costType: c.costType,
+                description: c.description,
+                quantity: c.quantity,
+                unitCost: c.unitCost,
+                totalCost: c.totalCost,
+              })),
+            } : undefined,
+          })),
+        },
+        ...(quote.paymentTerms.length > 0 && {
+          paymentTerms: {
+            create: quote.paymentTerms.map(pt => ({
+              installmentNumber: pt.installmentNumber,
+              percentage: pt.percentage,
+              amount: pt.amount,
+              daysAfterIssue: pt.daysAfterIssue,
+              dueDate: pt.dueDate,
+              description: pt.description,
+            })),
+          },
+        }),
+      },
+      include: {
+        client: true,
+        items: {
+          include: { product: true, hiddenCosts: true, details: true },
+        },
+        paymentTerms: { orderBy: { installmentNumber: 'asc' } },
+        warehouse: { select: { id: true, code: true, name: true } },
+      },
+    });
+
+    await tx.quote.update({
+      where: { id: quote.id },
+      data: { versionStatus: 'REEMPLAZADA' },
+    });
+
+    return created;
+  });
+
+  return normalizeQuote(newVersion);
+}
+
+async function getQuoteVersions(quoteId) {
+  const quote = await prisma.quote.findUnique({
+    where: { id: BigInt(quoteId) },
+    select: { id: true, rootQuoteId: true },
+  });
+
+  if (!quote) {
+    throw new Error('Cotización no encontrada');
+  }
+
+  const rootId = quote.rootQuoteId ?? quote.id;
+
+  const versions = await prisma.quote.findMany({
+    where: {
+      OR: [{ id: rootId }, { rootQuoteId: rootId }],
+    },
+    include: {
+      client: true,
+      items: { include: { product: true } },
+    },
+    orderBy: { version: 'asc' },
+  });
+
+  return versions.map(normalizeQuote);
+}
+
 async function generateQuoteNumber() {
   const year = new Date().getFullYear();
   const lastQuote = await prisma.quote.findFirst({
@@ -676,4 +836,6 @@ module.exports = {
   checkQuoteStock,
   getQuoteReceipt,
   updateItemPrice,
+  createQuoteVersion,
+  getQuoteVersions,
 };
