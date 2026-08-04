@@ -503,7 +503,7 @@ model Quote {
   version               Int                @default(1)
   versionStatus         QuoteVersionStatus @default(VIGENTE) @map("version_status")
   rootQuoteId           BigInt?            @map("root_quote_id")
-  previousVersionId     BigInt?            @unique @map("previous_version_id")
+  previousVersionId     BigInt?            @map("previous_version_id")
   clientId              BigInt             @map("client_id")
   createdBy             BigInt             @map("created_by")
   status                QuoteStatus        @default(PENDIENTE)
@@ -532,18 +532,19 @@ model Quote {
   rootQuote       Quote?  @relation("QuoteRoot", fields: [rootQuoteId], references: [id])
   versions        Quote[] @relation("QuoteRoot")
   previousVersion Quote?  @relation("QuotePreviousVersion", fields: [previousVersionId], references: [id])
-  nextVersion     Quote?  @relation("QuotePreviousVersion")
+  nextVersions    Quote[] @relation("QuotePreviousVersion")
 
   items         QuoteItem[]
   paymentTerms  QuotePaymentTerm[]
   serviceOrders ServiceOrder[]
   projectQuotes ProjectQuote[]
 
-  @@unique([quoteNumber, version], map: "uq_quotes_number_version")
+  @@index([quoteNumber, version], map: "idx_quotes_number_version")
   @@index([clientId], map: "idx_quotes_client")
   @@index([status], map: "idx_quotes_status")
   @@index([quoteNumber], map: "idx_quotes_number")
   @@index([rootQuoteId], map: "idx_quotes_root")
+  @@index([previousVersionId], map: "idx_quotes_previous_version")
   @@map("quotes")
 }
 
