@@ -8,9 +8,13 @@ async function resetDatabase() {
     // Eliminar todos los datos en orden (respetando foreign keys)
     console.log('📝 Eliminando datos...');
     
+    await prisma.notification.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.reportsLog.deleteMany();
     await prisma.entityCustomField.deleteMany();
+    await prisma.exchangeRate.deleteMany();
+    await prisma.service.deleteMany();
+    await prisma.quotePaymentTerm.deleteMany();
     await prisma.serviceOrderLabor.deleteMany();
     await prisma.serviceOrderMaterial.deleteMany();
     await prisma.serviceOrderTask.deleteMany();
@@ -52,10 +56,11 @@ async function resetDatabase() {
       'clients', 'suppliers', 'product_categories', 'units', 'products',
       'warehouses', 'warehouse_stock', 'inventory_movements', 'inventory_movement_items',
       'kits', 'kit_items', 'quotes', 'quote_items', 'quote_item_details',
-      'quote_item_hidden_costs', 'quote_item_stock_checks', 'projects',
+      'quote_item_hidden_costs', 'quote_item_stock_checks', 'quote_payment_terms', 'projects',
       'service_orders', 'project_services', 'project_quotes', 'service_order_tasks',
       'service_order_materials', 'service_order_labor', 'company_settings',
-      'modules_registry', 'entity_custom_fields', 'audit_log', 'reports_log'
+      'modules_registry', 'entity_custom_fields', 'audit_log', 'reports_log',
+      'exchange_rates', 'services', 'notifications'
     ];
 
     for (const table of tables) {
