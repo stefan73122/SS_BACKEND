@@ -2,6 +2,31 @@ const ExcelJS = require('exceljs');
 const prisma = require('../prisma/client');
 const exchangeRateService = require('./exchangeRate.service');
 
+/**
+ * Reintenta una operación de Prisma cuando la conexión con la base de datos
+ * (Clever Cloud) se corta a mitad de la importación (ECONNRESET / P1017 / P1001).
+ * Sin esto, un import largo se cae por completo ante un corte transitorio y
+ * los productos de la fila nunca llegan a crearse.
+ */
+async function withRetry(fn, { retries = 3, delayMs = 300, label = '' } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const isConnectionError =
+        error.code === 'P1017' || error.code === 'P1001' || error.code === 'P1008' ||
+        /ConnectionReset|Server has closed the connection|Can't reach database|Timed out|ECONNRESET/i.test(error.message || '');
+      if (!isConnectionError || attempt === retries) throw error;
+      console.warn(`[Excel Import] Conexión perdida${label ? ` (${label})` : ''}, reintento ${attempt}/${retries - 1}...`);
+      try { await prisma.$connect(); } catch (_) { /* se reintenta igual */ }
+      await new Promise(r => setTimeout(r, delayMs * attempt));
+    }
+  }
+  throw lastError;
+}
+
 function getCellValue(cell) {
   const v = cell.value;
   if (v === null || v === undefined) return null;
@@ -308,9 +333,9 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           // Verificar si hay un mapeo personalizado para esta categoría
           if (categoryMappings[grupo]) {
             // Validar que la categoría del mapping realmente exista
-            const mappedCategory = await prisma.productCategory.findUnique({
+            const mappedCategory = await withRetry(() => prisma.productCategory.findUnique({
               where: { id: BigInt(categoryMappings[grupo]) },
-            });
+            }), { label: 'categoría mapeada' });
             if (mappedCategory) {
               categoryId = mappedCategory.id;
             } else {
@@ -319,16 +344,16 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           }
           if (!categoryId) {
             // Buscar categoría existente
-            let category = await prisma.productCategory.findFirst({
+            let category = await withRetry(() => prisma.productCategory.findFirst({
               where: { name: { equals: grupo, mode: 'insensitive' } },
-            });
+            }), { label: 'buscar categoría' });
 
             // Solo crear si no existe
             if (!category) {
               console.log(`[Excel Import] Creando categoría: ${grupo}`);
-              category = await prisma.productCategory.create({
+              category = await withRetry(() => prisma.productCategory.create({
                 data: { name: grupo },
-              });
+              }), { label: 'crear categoría' });
               console.log(`[Excel Import] Categoría creada: ${grupo} (ID: ${category.id})`);
             }
             categoryId = category.id;
@@ -338,17 +363,17 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         // Buscar o crear unidad (UND)
         let unitId = null;
         if (und) {
-          let unit = await prisma.unit.findFirst({
+          let unit = await withRetry(() => prisma.unit.findFirst({
             where: { code: { equals: und, mode: 'insensitive' } },
-          });
+          }), { label: 'buscar unidad' });
 
           if (!unit) {
-            unit = await prisma.unit.create({
+            unit = await withRetry(() => prisma.unit.create({
               data: {
                 code: und,
                 name: und,
               },
-            });
+            }), { label: 'crear unidad' });
           }
           unitId = unit.id;
         }
@@ -356,17 +381,17 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         // Buscar o crear proveedor (PROVEEDOR)
         let supplierId = null;
         if (proveedor) {
-          let supplier = await prisma.supplier.findFirst({
+          let supplier = await withRetry(() => prisma.supplier.findFirst({
             where: { name: { equals: proveedor, mode: 'insensitive' } },
-          });
+          }), { label: 'buscar proveedor' });
 
           if (!supplier) {
-            supplier = await prisma.supplier.create({
+            supplier = await withRetry(() => prisma.supplier.create({
               data: {
                 name: proveedor,
                 isActive: true,
               },
-            });
+            }), { label: 'crear proveedor' });
           }
           supplierId = supplier.id;
         }
@@ -392,26 +417,26 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         };
 
         // Verificar si el producto ya existe
-        const existingProduct = await prisma.product.findUnique({
+        const existingProduct = await withRetry(() => prisma.product.findUnique({
           where: { sku: productData.sku },
-        });
+        }), { label: 'buscar producto' });
 
         let product;
         let action = '';
 
         if (existingProduct) {
           // Actualizar producto existente
-          product = await prisma.product.update({
+          product = await withRetry(() => prisma.product.update({
             where: { sku: productData.sku },
             data: productData,
-          });
+          }), { label: 'actualizar producto' });
           action = 'updated';
           results.updated++;
         } else {
           // Crear nuevo producto
-          product = await prisma.product.create({
+          product = await withRetry(() => prisma.product.create({
             data: productData,
-          });
+          }), { label: 'crear producto' });
           action = 'created';
           results.created++;
         }
@@ -421,9 +446,9 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
         let resolvedWarehouseName = null;
 
         if (warehouseId) {
-          const warehouseCheck = await prisma.warehouse.findUnique({
+          const warehouseCheck = await withRetry(() => prisma.warehouse.findUnique({
             where: { id: BigInt(warehouseId) },
-          });
+          }), { label: 'verificar almacén' });
           if (warehouseCheck) {
             resolvedWarehouseId = warehouseId;
             resolvedWarehouseName = warehouseCheck.name;
@@ -434,21 +459,21 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
 
         let warehouseResolveError = null;
         if (!resolvedWarehouseId && almacen) {
-          let warehouseByName = await prisma.warehouse.findFirst({
+          let warehouseByName = await withRetry(() => prisma.warehouse.findFirst({
             where: { name: { equals: almacen.trim(), mode: 'insensitive' } },
-          });
+          }), { label: 'buscar almacén' });
           if (!warehouseByName) {
             // Generar código único a partir del nombre (ej: "LA PAZ" → "LA_PAZ")
             const generatedCode = almacen.trim().toUpperCase().replace(/\s+/g, '_').slice(0, 20);
-            const codeExists = await prisma.warehouse.findUnique({ where: { code: generatedCode } });
+            const codeExists = await withRetry(() => prisma.warehouse.findUnique({ where: { code: generatedCode } }), { label: 'verificar código almacén' });
             if (codeExists) {
               console.warn(`[Excel Import] Código "${generatedCode}" ya existe con otro nombre`);
               warehouseResolveError = `Almacén "${almacen}" no encontrado y el código "${generatedCode}" ya está en uso. Crea el almacén manualmente.`;
             } else {
               console.log(`[Excel Import] Almacén "${almacen}" no existe, creándolo automáticamente`);
-              warehouseByName = await prisma.warehouse.create({
+              warehouseByName = await withRetry(() => prisma.warehouse.create({
                 data: { name: almacen.trim(), code: generatedCode },
-              });
+              }), { label: 'crear almacén' });
             }
           }
           if (warehouseByName) {
@@ -468,23 +493,23 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           if (!isNaN(quantityValue) && quantityValue >= 0) {
             const warehouseBigIntId = BigInt(resolvedWarehouseId);
 
-            const existingStock = await prisma.warehouseStock.findFirst({
+            const existingStock = await withRetry(() => prisma.warehouseStock.findFirst({
               where: { productId: product.id, warehouseId: warehouseBigIntId },
-            });
+            }), { label: 'buscar stock' });
 
             const finalQty = Math.floor(quantityValue);
             let previousQty = 0;
 
             if (existingStock) {
               previousQty = existingStock.quantity;
-              await prisma.warehouseStock.update({
+              await withRetry(() => prisma.warehouseStock.update({
                 where: { id: existingStock.id },
                 data: { quantity: { increment: finalQty } },
-              });
+              }), { label: 'actualizar stock' });
             } else {
-              await prisma.warehouseStock.create({
+              await withRetry(() => prisma.warehouseStock.create({
                 data: { productId: product.id, warehouseId: warehouseBigIntId, quantity: finalQty },
-              });
+              }), { label: 'crear stock' });
             }
 
             stockSaved = true;
@@ -493,7 +518,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
             if (finalQty > 0) {
               const isNew = action === 'created';
               try {
-                await prisma.inventoryMovement.create({
+                await withRetry(() => prisma.inventoryMovement.create({
                   data: {
                     type: isNew ? 'INGRESO' : 'AJUSTE',
                     reason: isNew ? 'COMPRA' : 'AJUSTE_MANUAL',
@@ -502,7 +527,7 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
                     warehouseToId: warehouseBigIntId,
                     items: { create: { productId: product.id, quantity: finalQty } },
                   },
-                });
+                }), { label: 'crear movimiento' });
               } catch (movError) {
                 console.error(`[Excel Import] Error movimiento ${product.sku}:`, movError.message);
               }
