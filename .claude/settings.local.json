@@ -14,7 +14,8 @@
       "Bash(railway *)",
       "Bash(xargs grep -l \"requirePermission\")",
       "Bash(dir scripts\\\\backup /s /b)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(DATABASE_URL=postgresql://ss_backend_db_user:IU4fdKP21FPZUZj2XT7ItKmwrotVw9v8@dpg-d9f5iulaeets73cg20vg-a.oregon-postgres.render.com/ss_backend_db node -e ' *)"
     ]
   }
 }
