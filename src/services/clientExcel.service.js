@@ -414,6 +414,11 @@ async function importProductsFromClientExcel(filePath, userId, warehouseId, cate
           ...(unitId && { unitId }),
           ...(supplierId && { supplierId }),
           ...(userId ? { createdBy: BigInt(userId) } : {}),
+          // Reimportar un SKU debe revivir el producto si estaba eliminado (soft delete),
+          // de lo contrario queda invisible en el listado (que filtra isActive: true).
+          isActive: true,
+          deletedAt: null,
+          deletedBy: null,
         };
 
         // Verificar si el producto ya existe
