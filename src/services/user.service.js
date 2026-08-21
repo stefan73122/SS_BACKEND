@@ -26,6 +26,7 @@ async function getAllUsers({ page = 1, limit = 10, search = '' }) {
         username: true,
         email: true,
         fullName: true,
+        phone: true,
         isActive: true,
         warehouseId: true,
         createdAt: true,
@@ -67,6 +68,7 @@ async function getUserById(id) {
       username: true,
       email: true,
       fullName: true,
+      phone: true,
       isActive: true,
       warehouseId: true,
       createdAt: true,
@@ -94,7 +96,7 @@ async function getUserById(id) {
 }
 
 async function createUser(data) {
-  const { username, email, password, fullName, isActive = true, warehouseId } = data;
+  const { username, email, password, fullName, phone, isActive = true, warehouseId } = data;
 
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -122,6 +124,7 @@ async function createUser(data) {
       email,
       passwordHash: hashedPassword,
       fullName,
+      phone,
       isActive,
       ...(warehouseId && { warehouseId: BigInt(warehouseId) }),
     },
@@ -130,6 +133,7 @@ async function createUser(data) {
       username: true,
       email: true,
       fullName: true,
+      phone: true,
       isActive: true,
       warehouseId: true,
       createdAt: true,
@@ -141,7 +145,7 @@ async function createUser(data) {
 }
 
 async function updateUser(id, data) {
-  const { username, email, password, fullName, isActive, warehouseId } = data;
+  const { username, email, password, fullName, phone, isActive, warehouseId } = data;
 
   const existingUser = await prisma.user.findUnique({
     where: { id: BigInt(id) },
@@ -180,6 +184,7 @@ async function updateUser(id, data) {
     ...(username && { username }),
     ...(email && { email }),
     ...(fullName !== undefined && { fullName }),
+    ...(phone !== undefined && { phone }),
     ...(isActive !== undefined && { isActive }),
     ...(warehouseId !== undefined && { warehouseId: warehouseId ? BigInt(warehouseId) : null }),
   };
@@ -197,6 +202,7 @@ async function updateUser(id, data) {
       username: true,
       email: true,
       fullName: true,
+      phone: true,
       isActive: true,
       warehouseId: true,
       createdAt: true,

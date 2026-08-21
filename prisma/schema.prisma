@@ -168,6 +168,7 @@ model User {
   email        String    @unique @db.VarChar(120)
   passwordHash String    @map("password_hash") @db.VarChar(255)
   fullName     String?   @map("full_name") @db.VarChar(150)
+  phone        String?   @db.VarChar(50)
   isActive     Boolean   @default(true) @map("is_active")
   warehouseId  BigInt?   @map("warehouse_id")
   createdAt    DateTime  @default(now()) @map("created_at")
