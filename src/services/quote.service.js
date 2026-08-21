@@ -56,6 +56,7 @@ async function getAllQuotes({ page = 1, limit = 10, search = '', status = null, 
             username: true,
             email: true,
             fullName: true,
+            phone: true,
           },
         },
         items: {
@@ -94,6 +95,7 @@ async function getQuoteById(id) {
           username: true,
           email: true,
           fullName: true,
+          phone: true,
         },
       },
       items: {
