@@ -52,6 +52,17 @@ async function remove(req, res) {
   }
 }
 
+async function removeBulk(req, res) {
+  try {
+    const { ids } = req.body;
+    const userId = req.user?.id || req.user?.userId;
+    const result = await productService.deleteProducts(ids, userId);
+    res.json(serializeBigInt(result));
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}
+
 async function getStock(req, res) {
   try {
     const { id } = req.params;
@@ -68,5 +79,6 @@ module.exports = {
   create,
   update,
   remove,
+  removeBulk,
   getStock,
 };

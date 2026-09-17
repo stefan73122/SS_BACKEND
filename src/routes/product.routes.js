@@ -13,5 +13,6 @@ router.get('/:id/stock', requirePermission('products.stock'), productController.
 router.post('/',       requirePermission('products.create'), productController.create);
 router.put('/:id',     requirePermission('products.update'), productController.update);
 router.delete('/:id',  requirePermission('products.delete'), productController.remove);
+router.post('/bulk-delete', requirePermission('products.delete'), productController.removeBulk);
 
 module.exports = router;

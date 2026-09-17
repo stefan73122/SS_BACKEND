@@ -391,6 +391,103 @@ async function deleteProduct(id, userId = null) {
   return { message: 'Producto desactivado exitosamente' };
 }
 
+// Borrado masivo: aplica exactamente la misma lógica que deleteProduct (baja
+// lógica + movimiento EGRESO por stock existente + AuditLog) a cada producto,
+// dentro de una única transacción — si alguno no existe, no se borra ninguno.
+async function deleteProducts(ids, userId = null) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new Error('Debe indicar al menos un producto a eliminar');
+  }
+
+  const uniqueIds = [...new Set(ids.map(id => id.toString()))];
+  const deletedAt = new Date();
+  const createdByBig = userId ? BigInt(userId) : BigInt(1);
+
+  let deleterWarehouse = null;
+  if (userId) {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: { warehouse: { select: { id: true, code: true, name: true } } },
+    });
+    deleterWarehouse = userRecord?.warehouse || null;
+  }
+
+  const deleted = await prisma.$transaction(async (tx) => {
+    const results = [];
+
+    for (const id of uniqueIds) {
+      const product = await tx.product.findUnique({
+        where: { id: BigInt(id) },
+        include: {
+          warehouseStocks: {
+            include: { warehouse: { select: { id: true, code: true, name: true } } },
+          },
+        },
+      });
+
+      if (!product) {
+        throw new Error(`Producto con ID ${id} no encontrado`);
+      }
+
+      const warehousesWithStock = product.warehouseStocks
+        .filter(s => parseFloat(s.quantity) > 0)
+        .map(s => ({
+          warehouseId: s.warehouseId.toString(),
+          warehouseName: s.warehouse.name,
+          quantity: parseFloat(s.quantity),
+        }));
+
+      await tx.product.update({
+        where: { id: BigInt(id) },
+        data: {
+          isActive: false,
+          deletedAt,
+          ...(userId ? { deletedBy: BigInt(userId) } : {}),
+        },
+      });
+
+      for (const stock of product.warehouseStocks) {
+        const qty = parseFloat(stock.quantity);
+        if (qty > 0) {
+          await tx.inventoryMovement.create({
+            data: {
+              type: 'EGRESO',
+              reason: 'AJUSTE_MANUAL',
+              note: `Baja de producto: ${product.name} (SKU: ${product.sku})`,
+              createdBy: createdByBig,
+              warehouseFromId: stock.warehouseId,
+              items: { create: { productId: product.id, quantity: qty } },
+            },
+          });
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: userId ? BigInt(userId) : null,
+          action: 'DELETE',
+          entityType: 'Product',
+          entityId: product.id,
+          oldValues: JSON.stringify({
+            sku: product.sku,
+            name: product.name,
+            isActive: true,
+            warehouses: warehousesWithStock,
+            deleterWarehouse: deleterWarehouse,
+          }),
+          newValues: JSON.stringify({ isActive: false, deletedAt }),
+        },
+      });
+
+      results.push({ id: product.id.toString(), sku: product.sku, name: product.name });
+    }
+
+    return results;
+  }, { timeout: 60000, maxWait: 15000 });
+
+  return { message: `${deleted.length} producto(s) eliminado(s) exitosamente`, count: deleted.length, deleted };
+}
+
 async function getProductStock(id) {
   const stock = await prisma.warehouseStock.findMany({
     where: { productId: BigInt(id) },
@@ -412,5 +509,6 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
+  deleteProducts,
   getProductStock,
 };
