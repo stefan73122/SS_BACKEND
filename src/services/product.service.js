@@ -1,6 +1,14 @@
 const prisma = require('../prisma/client');
 const exchangeRateService = require('./exchangeRate.service');
 
+// El SKU es único a nivel de BD y el borrado es lógico (deletedAt), así que sin
+// esto un producto eliminado deja su SKU "ocupado" para siempre y no se puede
+// reutilizar (ni crear manualmente ni reimportar por Excel). Al eliminar, se
+// renombra el SKU para liberar el original; se trunca a 50 chars (límite de columna).
+function freeSku(sku, id) {
+  return `${sku}__del${id}`.slice(0, 50);
+}
+
 // Los precios del producto (costPrice/salePrice) se guardan siempre en USD.
 // El valor en bolivianos se calcula al vuelo con el TC vigente, nunca se persiste.
 function withAdjustedPrice(product, currentRate) {
@@ -342,12 +350,15 @@ async function deleteProduct(id, userId = null) {
       quantity: parseFloat(s.quantity),
     }));
 
+  const freedSku = freeSku(product.sku, id);
+
   await prisma.$transaction(async (tx) => {
     await tx.product.update({
       where: { id: BigInt(id) },
       data: {
         isActive: false,
         deletedAt,
+        sku: freedSku,
         ...(userId ? { deletedBy: BigInt(userId) } : {}),
       },
     });
@@ -383,7 +394,7 @@ async function deleteProduct(id, userId = null) {
           warehouses: warehousesWithStock,
           deleterWarehouse: deleterWarehouse,
         }),
-        newValues: JSON.stringify({ isActive: false, deletedAt }),
+        newValues: JSON.stringify({ isActive: false, deletedAt, sku: freedSku }),
       },
     });
   });
@@ -437,11 +448,14 @@ async function deleteProducts(ids, userId = null) {
           quantity: parseFloat(s.quantity),
         }));
 
+      const freedSku = freeSku(product.sku, id);
+
       await tx.product.update({
         where: { id: BigInt(id) },
         data: {
           isActive: false,
           deletedAt,
+          sku: freedSku,
           ...(userId ? { deletedBy: BigInt(userId) } : {}),
         },
       });
@@ -475,7 +489,7 @@ async function deleteProducts(ids, userId = null) {
             warehouses: warehousesWithStock,
             deleterWarehouse: deleterWarehouse,
           }),
-          newValues: JSON.stringify({ isActive: false, deletedAt }),
+          newValues: JSON.stringify({ isActive: false, deletedAt, sku: freedSku }),
         },
       });
 
