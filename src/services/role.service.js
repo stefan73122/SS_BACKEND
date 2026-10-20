@@ -170,7 +170,14 @@ async function deleteRole(id) {
   return { message: 'Rol eliminado exitosamente' };
 }
 
+// Agrega permisos al rol sin tocar los que ya tiene (para quitar uno está
+// removePermissionFromRole). Antes borraba todos los permisos del rol y dejaba solo
+// los recibidos, y la pantalla de Roles solo envía los que se están agregando.
 async function assignPermissionsToRole(roleId, permissionIds) {
+  if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
+    throw new Error('Debes enviar al menos un permiso');
+  }
+
   const role = await prisma.role.findUnique({
     where: { id: BigInt(roleId) },
   });
@@ -179,25 +186,28 @@ async function assignPermissionsToRole(roleId, permissionIds) {
     throw new Error('Rol no encontrado');
   }
 
-  await prisma.rolePermission.deleteMany({
-    where: { roleId: BigInt(roleId) },
+  const ids = [...new Set(permissionIds.map(String))].map((id) => BigInt(id));
+
+  const existingCount = await prisma.permission.count({
+    where: { id: { in: ids } },
   });
 
-  const rolePermissions = await Promise.all(
-    permissionIds.map((permissionId) =>
-      prisma.rolePermission.create({
-        data: {
-          roleId: BigInt(roleId),
-          permissionId: BigInt(permissionId),
-        },
-        include: {
-          permission: true,
-        },
-      })
-    )
-  );
+  if (existingCount !== ids.length) {
+    throw new Error('Uno o más permisos no existen');
+  }
 
-  return rolePermissions;
+  // skipDuplicates: un permiso que el rol ya tenía se ignora en vez de fallar
+  await prisma.rolePermission.createMany({
+    data: ids.map((permissionId) => ({ roleId: role.id, permissionId })),
+    skipDuplicates: true,
+  });
+
+  return prisma.rolePermission.findMany({
+    where: { roleId: role.id },
+    include: {
+      permission: true,
+    },
+  });
 }
 
 async function removePermissionFromRole(roleId, permissionId) {
