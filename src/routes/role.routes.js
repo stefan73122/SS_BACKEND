@@ -14,6 +14,7 @@ router.put('/:id', requirePermission('roles.update'), roleController.update);
 router.delete('/:id', requirePermission('roles.delete'), roleController.remove);
 
 router.post('/:id/permissions',                  requirePermission('roles.assign'), roleController.assignPermissions);
+router.put('/:id/permissions',                   requirePermission('roles.assign'), roleController.setPermissions);
 router.delete('/:id/permissions/:permissionId',  requirePermission('roles.assign'), roleController.removePermission);
 
 router.post('/assign-user',  requirePermission('roles.assign'), roleController.assignToUser);

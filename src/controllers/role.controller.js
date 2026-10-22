@@ -61,6 +61,17 @@ async function assignPermissions(req, res) {
   }
 }
 
+async function setPermissions(req, res) {
+  try {
+    const { id } = req.params;
+    const { permissionIds } = req.body;
+    const result = await roleService.setRolePermissions(id, permissionIds);
+    res.json(serializeBigInt(result));
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}
+
 async function removePermission(req, res) {
   try {
     const { id, permissionId } = req.params;
@@ -118,6 +129,7 @@ module.exports = {
   update,
   remove,
   assignPermissions,
+  setPermissions,
   removePermission,
   assignToUser,
   removeFromUser,

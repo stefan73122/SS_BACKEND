@@ -210,6 +210,52 @@ async function assignPermissionsToRole(roleId, permissionIds) {
   });
 }
 
+// Deja el rol exactamente con los permisos recibidos: conserva los que siguen en la
+// lista, agrega los nuevos y quita solo los que ya no vienen. Todo en una transacción:
+// si algo falla, el rol queda como estaba (antes un error a mitad de camino lo dejaba
+// sin permisos). Una lista vacía quita todos.
+async function setRolePermissions(roleId, permissionIds) {
+  if (!Array.isArray(permissionIds)) {
+    throw new Error('permissionIds debe ser una lista');
+  }
+
+  const ids = [...new Set(permissionIds.map(String))].map((id) => BigInt(id));
+
+  return prisma.$transaction(async (tx) => {
+    const role = await tx.role.findUnique({
+      where: { id: BigInt(roleId) },
+    });
+
+    if (!role) {
+      throw new Error('Rol no encontrado');
+    }
+
+    const existingCount = await tx.permission.count({
+      where: { id: { in: ids } },
+    });
+
+    if (existingCount !== ids.length) {
+      throw new Error('Uno o más permisos no existen');
+    }
+
+    await tx.rolePermission.deleteMany({
+      where: { roleId: role.id, permissionId: { notIn: ids } },
+    });
+
+    await tx.rolePermission.createMany({
+      data: ids.map((permissionId) => ({ roleId: role.id, permissionId })),
+      skipDuplicates: true,
+    });
+
+    return tx.rolePermission.findMany({
+      where: { roleId: role.id },
+      include: {
+        permission: true,
+      },
+    });
+  });
+}
+
 async function removePermissionFromRole(roleId, permissionId) {
   const rolePermission = await prisma.rolePermission.findFirst({
     where: {
@@ -353,6 +399,7 @@ module.exports = {
   updateRole,
   deleteRole,
   assignPermissionsToRole,
+  setRolePermissions,
   removePermissionFromRole,
   assignRoleToUser,
   removeRoleFromUser,

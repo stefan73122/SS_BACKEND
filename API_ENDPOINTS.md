@@ -998,6 +998,20 @@ Content-Type: application/json
 }
 ```
 
+Agrega los permisos sin quitar los que el rol ya tiene.
+
+### Reemplazar Permisos de Rol
+```http
+PUT /api/roles/:id/permissions
+Content-Type: application/json
+
+{
+  "permissionIds": [1, 2, 3, 5, 8]
+}
+```
+
+Deja el rol exactamente con esa lista (conserva, agrega y quita) en una transacción. Una lista vacía quita todos.
+
 ### Remover Permiso de Rol
 ```http
 DELETE /api/roles/:id/permissions/:permissionId
