@@ -66,6 +66,7 @@ async function seedInitialData() {
       { code: 'products.update', description: 'Actualizar productos', module: 'Productos' },
       { code: 'products.delete', description: 'Eliminar productos',   module: 'Productos' },
       { code: 'products.stock',  description: 'Consultar stock de productos', module: 'Productos' },
+      { code: 'products.manage-prices', description: 'Gestionar precios de compra y venta', module: 'Productos' },
 
       // ── Categorías ────────────────────────────────────────────────────────
       { code: 'categories.view',   description: 'Ver categorías',        module: 'Categorías' },

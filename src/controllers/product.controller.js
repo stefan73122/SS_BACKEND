@@ -34,9 +34,13 @@ async function create(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const product = await productService.updateProduct(id, req.body);
+    const canManagePrices = req.user?.permissions?.includes('products.manage-prices') ?? false;
+    const product = await productService.updateProduct(id, req.body, { canManagePrices });
     res.json(serializeBigInt(product));
   } catch (error) {
+    if (error.status === 403) {
+      return res.status(403).json({ error: error.message, requiredPermission: error.requiredPermission });
+    }
     res.status(400).json({ error: error.message });
   }
 }

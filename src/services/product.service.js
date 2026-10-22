@@ -247,8 +247,28 @@ async function createProduct(data, userId = null) {
   }, currentRate);
 }
 
-async function updateProduct(id, data) {
+// Sin el permiso products.manage-prices se rechaza cualquier precio distinto al actual
+// (reenviar el mismo valor, como hacen los formularios que mandan todos los campos, se permite)
+async function assertPricesUnchanged(id, { costPrice, salePrice }) {
+  if (costPrice === undefined && salePrice === undefined) return;
+  const current = await prisma.product.findUnique({
+    where: { id: BigInt(id) },
+    select: { costPrice: true, salePrice: true },
+  });
+  if (!current) return; // prisma.product.update devolverá el error de "no encontrado"
+  const toNumber = (value) => (value === null || value === '' ? null : parseFloat(value));
+  const changed = (incoming, stored) => incoming !== undefined && toNumber(incoming) !== toNumber(stored);
+  if (changed(costPrice, current.costPrice) || changed(salePrice, current.salePrice)) {
+    const error = new Error('No tienes permiso para modificar los precios de los productos');
+    error.status = 403;
+    error.requiredPermission = 'products.manage-prices';
+    throw error;
+  }
+}
+
+async function updateProduct(id, data, { canManagePrices = true } = {}) {
   const { name, description, categoryId, unitId, costPrice, salePrice, minStock, supplierId } = data;
+  if (!canManagePrices) await assertPricesUnchanged(id, { costPrice, salePrice });
   const brand = data.brand !== undefined ? data.brand : data.marca;
   const origin = data.origin !== undefined ? data.origin : data.origen;
   const manufacturerCode = data.manufacturerCode !== undefined ? data.manufacturerCode
